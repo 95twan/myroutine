@@ -1,0 +1,68 @@
+package com.node5.catalogservice.product.infrastructure;
+
+import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Repository;
+
+import com.node5.catalogservice.product.domain.Product;
+import com.node5.catalogservice.product.domain.ProductRepository;
+import com.node5.catalogservice.product.domain.ProductStatus;
+
+import lombok.RequiredArgsConstructor;
+
+@Repository
+@RequiredArgsConstructor
+public class ProductRepositoryAdapter implements ProductRepository {
+
+	private final ProductJpaRepository productJpaRepository;
+
+	@Override
+	public Page<Product> findByStatus(ProductStatus status, Pageable pageable) {
+		return productJpaRepository.findByStatus(status, pageable);
+	}
+
+	@Override
+	public Page<Product> findByShopId(UUID shopId, Pageable pageable) {
+		return productJpaRepository.findByShopId(shopId, pageable);
+	}
+
+	@Override
+	public Optional<Product> findByIdAndStatus(UUID id, ProductStatus status) {
+		return productJpaRepository.findByIdAndStatus(id, status);
+	}
+
+	@Override
+	public Optional<Product> findById(UUID id) {
+		return productJpaRepository.findById(id);
+	}
+
+	@Override
+	public Product save(Product product) {
+		return productJpaRepository.save(product);
+	}
+
+	@Override
+	public List<Product> findAllByIdIn(Collection<UUID> ids) {
+		return productJpaRepository.findByIdIn(ids);
+	}
+
+	@Override
+	public List<Product> findAllByIdInAndStatus(Collection<UUID> ids, ProductStatus status) {
+		return productJpaRepository.findByIdInAndStatus(ids, status);
+	}
+
+	@Override
+	public List<UUID> findIdsByShopIdIn(Collection<UUID> shopIds) {
+		return productJpaRepository.findIdsByShopIdIn(shopIds);
+	}
+
+	@Override
+	public int discontinueByShopId(UUID shopId) {
+		return productJpaRepository.discontinueByShopId(shopId);
+	}
+}
