@@ -2,12 +2,12 @@ package com.node5.orderservice.config;
 
 import com.node5.orderservice.global.openfeign.client.WalletClient;
 import com.node5.orderservice.global.openfeign.client.CatalogClient;
-import com.node5.orderservice.global.openfeign.client.MemberClient;
+import com.node5.orderservice.global.openfeign.client.ShopClient;
 import org.springframework.cloud.openfeign.EnableFeignClients;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@EnableFeignClients(clients = {WalletClient.class, CatalogClient.class, MemberClient.class})
+@EnableFeignClients(clients = {WalletClient.class, CatalogClient.class, ShopClient.class})
 public class OpenFeignConfig {
 
 }

@@ -1,7 +1,7 @@
 package com.node5.batchservice.config;
 
 import com.node5.batchservice.reviewsummary.client.CatalogClient;
-import com.node5.batchservice.settlement.client.MemberClient;
+import com.node5.batchservice.settlement.client.ShopClient;
 import com.node5.batchservice.settlement.client.WalletClient;
 import com.node5.batchservice.subscription.client.OrderClient;
 import com.node5.batchservice.payment.client.PaymentClient;
@@ -10,6 +10,6 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@EnableFeignClients(clients = {CatalogClient.class, OrderClient.class, PaymentClient.class, SupportClient.class, WalletClient.class, MemberClient.class})
+@EnableFeignClients(clients = {CatalogClient.class, OrderClient.class, PaymentClient.class, SupportClient.class, WalletClient.class, ShopClient.class})
 public class OpenFeignConfig {
 }
