@@ -1,14 +1,14 @@
 package com.node5.batchservice.settlement.batch;
 
 import com.node5.batchservice.settlement.batch.dto.SettlementAggregateDto;
-import com.node5.batchservice.settlement.client.MemberClient;
+import com.node5.batchservice.settlement.client.ShopClient;
 import com.node5.batchservice.settlement.client.WalletClient;
 import com.node5.batchservice.settlement.client.dto.WalletSettleInfo;
 import com.node5.batchservice.settlement.client.dto.WalletSettleRequest;
 import com.node5.batchservice.settlement.domain.SettlementResultRepository;
 import com.node5.batchservice.settlement.domain.SettlementSourceRepository;
-import com.node5.memberservice.settlement.domain.SettlementPayoutStatus;
-import com.node5.memberservice.settlement.domain.SettlementResult;
+import com.node5.shopservice.settlement.domain.SettlementPayoutStatus;
+import com.node5.shopservice.settlement.domain.SettlementResult;
 import feign.FeignException;
 import jakarta.persistence.EntityManagerFactory;
 import lombok.RequiredArgsConstructor;
@@ -50,7 +50,7 @@ public class SettlementBatchConfig {
     private final JobRepository jobRepository;
     private final PlatformTransactionManager transactionManager;
 
-    private final @Qualifier("memberEntityManagerFactory") EntityManagerFactory memberEntityManagerFactory;
+    private final @Qualifier("shopEntityManagerFactory") EntityManagerFactory shopEntityManagerFactory;
 
     private final SettlementSourceRepository sourceRepository;
     private final SettlementResultRepository resultRepository;
@@ -106,7 +106,7 @@ public class SettlementBatchConfig {
 
         return new JpaPagingItemReaderBuilder<SettlementAggregateDto>()
                 .name("settlementCreateReader")
-                .entityManagerFactory(memberEntityManagerFactory)
+                .entityManagerFactory(shopEntityManagerFactory)
                 .pageSize(CHUNK_SIZE)
                 .queryString("SELECT new com.node5.batchservice.settlement.batch.dto.SettlementAggregateDto(s.shopId, SUM(s.itemAmount)) " +
                         "FROM SettlementSource s " +
@@ -202,7 +202,7 @@ public class SettlementBatchConfig {
 
         return new JpaPagingItemReaderBuilder<SettlementResult>()
                 .name("settlementPayoutReader")
-                .entityManagerFactory(memberEntityManagerFactory)
+                .entityManagerFactory(shopEntityManagerFactory)
                 .pageSize(CHUNK_SIZE)
                 .queryString("SELECT r FROM SettlementResult r " +
                         "WHERE r.status = 'PENDING' " +
@@ -218,7 +218,7 @@ public class SettlementBatchConfig {
     @StepScope
     public ItemProcessor<SettlementResult, SettlementResult> settlementPayoutProcessor(
             WalletClient walletClient,
-            MemberClient shopClient
+            ShopClient shopClient
     ) {
         return result -> {
             try {

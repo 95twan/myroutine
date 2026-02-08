@@ -1,8 +1,8 @@
 package com.node5.batchservice.settlement.infrastructure;
 
 import com.node5.batchservice.settlement.domain.SettlementSourceRepository;
-import com.node5.memberservice.settlement.domain.SettlementProcessStatus;
-import com.node5.memberservice.settlement.domain.SettlementSource;
+import com.node5.shopservice.settlement.domain.SettlementProcessStatus;
+import com.node5.shopservice.settlement.domain.SettlementSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 

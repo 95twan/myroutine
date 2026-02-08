@@ -1,7 +1,7 @@
 package com.node5.orderservice.order.application;
 
 import com.node5.orderservice.global.openfeign.client.CatalogClient;
-import com.node5.orderservice.global.openfeign.client.MemberClient;
+import com.node5.orderservice.global.openfeign.client.ShopClient;
 import com.node5.orderservice.global.openfeign.client.dto.SettlementSourceItem;
 import com.node5.orderservice.order.domain.*;
 import com.node5.orderservice.order.exception.OrderException;
@@ -25,7 +25,7 @@ public class OrderTransactionService {
 
     private final OrderRepository orderRepository;
     private final CatalogClient catalogClient;
-    private final MemberClient memberClient;
+    private final ShopClient shopClient;
     private final OrderItemRepository orderItemRepository;
     private final FeignErrorDecoderUtil feignUtil;
 
@@ -85,7 +85,7 @@ public class OrderTransactionService {
 
         try {
             // 정산 서비스 API 호출
-            memberClient.settle(settlementItems);
+            shopClient.settle(settlementItems);
 
             // API 호출 성공 시 OrderItem의 settlementStatus를 REGISTERED로 업데이트
             List<UUID> orderItemIds = orderItems.stream()

@@ -3,6 +3,7 @@ package com.node5.memberservice.member.application;
 import com.node5.common.event.MemberDeletedEvent;
 import com.node5.memberservice.auth.domain.OAuthRepository;
 import com.node5.memberservice.client.OrderClient;
+import com.node5.memberservice.client.ShopClient;
 import com.node5.memberservice.client.WalletClient;
 import com.node5.memberservice.client.dto.WalletInfo;
 import com.node5.memberservice.member.application.dto.*;
@@ -10,9 +11,6 @@ import com.node5.memberservice.member.domain.*;
 import com.node5.memberservice.member.exception.MemberErrorCode;
 import com.node5.memberservice.member.exception.MemberException;
 import com.node5.memberservice.redis.application.RedisService;
-import com.node5.memberservice.settlement.application.SettlementInternalService;
-import com.node5.memberservice.shop.domain.Shop;
-import com.node5.memberservice.shop.domain.ShopRepository;
 import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -35,10 +33,9 @@ public class MemberService {
     private final RoleRepository roleRepository;
     private final RedisService redisService;
     private final ApplicationEventPublisher eventPublisher;
-    private final ShopRepository shopRepository;
+    private final ShopClient shopClient;
     private final WalletClient walletClient;
     private final OrderClient orderClient;
-    private final SettlementInternalService settlementInternalService;
 
     public MemberInfoResponse findById(UUID memberId) {
         Member member = getNotDeletedMemberOrThrow(memberId);
@@ -98,7 +95,7 @@ public class MemberService {
 
     private void validateNoSettlementInProgress(List<UUID> shopIds) {
         try {
-            Boolean settlementInProgress = settlementInternalService.hasInProgressSettlement(shopIds);
+            Boolean settlementInProgress = shopClient.hasInProgressSettlement(shopIds).getBody();
             if(settlementInProgress == null || settlementInProgress) {
                 throw new MemberException(MemberErrorCode.MEMBER_HAS_SETTLEMENT);
             }
@@ -108,20 +105,19 @@ public class MemberService {
     }
 
     private List<UUID> getShopIds(UUID memberId) {
-        List<Shop> shops = shopRepository.findAllByMemberIdAndDeletedAtIsNull(memberId);
-        return shops.stream().map(Shop::getId).toList();
+        return shopClient.getShopIdsByMemberId(memberId).getBody();
     }
 
     @Transactional
-    public void addMemberRole(UUID memberId, MemberRole role) {
+    public void addMemberRole(UUID memberId, RoleModifyCommand command) {
         Member member = getNotDeletedMemberOrThrow(memberId);
-        member.addRole(role);
+        member.addRole(command.role());
     }
 
     @Transactional
-    public void deleteMemberRole(UUID memberId, MemberRole role) {
+    public void deleteMemberRole(UUID memberId, RoleModifyCommand command) {
         Member member = getNotDeletedMemberOrThrow(memberId);
-        member.deleteRole(role);
+        member.deleteRole(command.role());
     }
 
     private Member getNotDeletedMemberOrThrow(UUID memberId) {

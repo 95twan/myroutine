@@ -5,7 +5,7 @@ import com.node5.orderservice.global.openfeign.client.CatalogClient;
 import com.node5.orderservice.subscription.application.dto.SubscriptionCreateCommand;
 import com.node5.orderservice.subscription.application.dto.SubscriptionInfo;
 import com.node5.orderservice.subscription.application.dto.SubscriptionUpdateCommand;
-import com.node5.orderservice.global.openfeign.client.MemberClient;
+import com.node5.orderservice.global.openfeign.client.ShopClient;
 import com.node5.orderservice.global.openfeign.client.dto.ProductInfoResponse;
 import com.node5.orderservice.subscription.domain.*;
 import com.node5.orderservice.subscription.exception.SubscriptionException;
@@ -38,7 +38,7 @@ public class SubscriptionService {
     private final SubscriptionRepository subscriptionRepository;
     private final SubscriptionRecurrenceRuleRepository subscriptionRecurrenceRuleRepository;
     private final CatalogClient catalogClient;
-    private final MemberClient memberClient;
+    private final ShopClient shopClient;
     private final ApplicationEventPublisher eventPublisher;
 
     public SubscriptionInfo findById(UUID id) {
@@ -232,7 +232,7 @@ public class SubscriptionService {
     private void validateProductNotCurrentMembersShop(UUID memberId, UUID shopId) {
         UUID shopOwnerId;
         try {
-            shopOwnerId = memberClient.getMemberIdByShopId(shopId).getBody();
+            shopOwnerId = shopClient.getMemberIdByShopId(shopId).getBody();
         } catch (FeignException e) {
             throw new SubscriptionException(SUBSCRIPTION_SHOP_REQUEST_FAILED);
         }
