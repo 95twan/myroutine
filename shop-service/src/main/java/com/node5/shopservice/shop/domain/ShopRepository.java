@@ -10,7 +10,7 @@ import java.util.UUID;
 public interface ShopRepository {
     Page<Shop> findAllByMemberIdAndDeletedAtIsNull(UUID memberId, Pageable pageable);
     List<Shop> findAllByMemberIdAndDeletedAtIsNull(UUID memberId);
-    void save(Shop shop);
+    Shop save(Shop shop);
     Optional<Shop> findByIdAndMemberIdAndDeletedAtIsNull(UUID shopId, UUID memberId);
     int countByMemberIdAndDeletedAtIsNull(UUID memberId);
     void flush();

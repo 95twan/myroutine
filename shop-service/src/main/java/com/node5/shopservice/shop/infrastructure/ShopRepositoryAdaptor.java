@@ -28,8 +28,8 @@ public class ShopRepositoryAdaptor implements ShopRepository {
     }
 
     @Override
-    public void save(Shop shop) {
-        shopJpaRepository.save(shop);
+    public Shop save(Shop shop) {
+        return shopJpaRepository.save(shop);
     }
 
     @Override

@@ -1,14 +1,16 @@
 package com.node5.shopservice.shop.application;
 
 import com.node5.common.event.ShopDeletedEvent;
+import com.node5.common.event.ShopRegisteredEvent;
 import com.node5.shopservice.client.MemberClient;
 import com.node5.shopservice.client.WalletClient;
-import com.node5.shopservice.client.dto.RoleModifyRequest;
 import com.node5.shopservice.shop.application.dto.ShopInfoResponse;
 import com.node5.shopservice.shop.application.dto.ShopListResponse;
 import com.node5.shopservice.shop.application.dto.ShopModifyCommand;
 import com.node5.shopservice.shop.application.dto.ShopRegisterCommand;
 import com.node5.shopservice.shop.domain.Shop;
+import com.node5.shopservice.shop.domain.ShopRegistration;
+import com.node5.shopservice.shop.domain.ShopRegistrationRepository;
 import com.node5.shopservice.shop.domain.ShopRepository;
 import com.node5.shopservice.shop.exception.ShopErrorCode;
 import com.node5.shopservice.shop.exception.ShopException;
@@ -33,6 +35,7 @@ public class ShopService {
     private static final String ROLE_SELLER = "SELLER";
 
     private final ShopRepository shopRepository;
+    private final ShopRegistrationRepository shopRegistrationRepository;
     private final WalletClient walletClient;
     private final MemberClient memberClient;
     private final ApplicationEventPublisher eventPublisher;
@@ -51,16 +54,13 @@ public class ShopService {
     public void registerShop(UUID memberId, ShopRegisterCommand command) {
         checkWalletExists(memberId);
 
-        Shop shop = Shop.create(memberId, command);
-        shopRepository.save(shop);
+        Shop shop = shopRepository.save(Shop.create(memberId, command));
 
-        try {
-            RoleModifyRequest request = new RoleModifyRequest(ROLE_SELLER);
-            memberClient.addMemberRole(memberId, request);
-        } catch (Exception e) {
-            log.error("memberClient.updateMemberRoles error : {}", e.getMessage());
-            throw new ShopException(ShopErrorCode.ROLE_UPDATE_FAILED);
-        }
+        ShopRegistration shopRegistration = ShopRegistration.create(shop.getId());
+        shopRegistrationRepository.save(shopRegistration);
+
+        ShopRegisteredEvent shopRegisteredEvent = new ShopRegisteredEvent(shop.getId(), memberId);
+        eventPublisher.publishEvent(shopRegisteredEvent);
     }
 
     private void checkWalletExists(UUID memberId) {
