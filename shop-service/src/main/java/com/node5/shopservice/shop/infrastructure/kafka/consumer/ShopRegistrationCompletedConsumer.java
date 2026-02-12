@@ -17,7 +17,7 @@ public class ShopRegistrationCompletedConsumer {
 
     @KafkaListener(topics = "${kafka.topics.shop-registration-completed}")
     public void consume(ShopRegistrationCompletedEvent event, Acknowledgment ack) {
-        shopService.registerShopActive(event.shopId());
+        shopService.registerShopCompleted(event.shopId());
         ack.acknowledge();
     }
 }

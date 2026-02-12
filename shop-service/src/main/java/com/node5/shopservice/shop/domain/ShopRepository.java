@@ -15,5 +15,5 @@ public interface ShopRepository {
     Optional<Shop> findByIdAndMemberIdAndDeletedAtIsNull(UUID shopId, UUID memberId);
     int countByMemberIdAndDeletedAtIsNull(UUID memberId);
     void flush();
-    Optional<Shop> findByIdAndStatusIsActive(UUID shopId);
+    Optional<Shop> findByIdAndStatusIsCompleted(UUID shopId);
 }

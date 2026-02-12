@@ -52,7 +52,7 @@ public class ShopRepositoryAdaptor implements ShopRepository {
     }
 
     @Override
-    public Optional<Shop> findByIdAndStatusIsActive(UUID shopId) {
-        return shopJpaRepository.findByIdAndStatusIsActive(shopId, ShopRegistrationStatus.ACTIVE);
+    public Optional<Shop> findByIdAndStatusIsCompleted(UUID shopId) {
+        return shopJpaRepository.findByIdAndStatusIsCompleted(shopId, ShopRegistrationStatus.COMPLETED);
     }
 }

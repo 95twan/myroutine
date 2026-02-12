@@ -46,5 +46,5 @@ public interface ShopJpaRepository extends JpaRepository<Shop, UUID> {
                     and sr.status = :status
                     and s.deletedAt is null
             """)
-    Optional<Shop> findByIdAndStatusIsActive(UUID shopId, ShopRegistrationStatus status);
+    Optional<Shop> findByIdAndStatusIsCompleted(UUID shopId, ShopRegistrationStatus status);
 }

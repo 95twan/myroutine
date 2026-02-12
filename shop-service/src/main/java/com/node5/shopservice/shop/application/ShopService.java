@@ -103,7 +103,7 @@ public class ShopService {
     }
 
     public UUID getMemberIdByShopId(UUID shopId) {
-        Shop shop = shopRepository.findByIdAndStatusIsActive(shopId).orElseThrow(
+        Shop shop = shopRepository.findByIdAndStatusIsCompleted(shopId).orElseThrow(
                 () -> new ShopException(ShopErrorCode.SHOP_NOT_FOUND)
         );
 
@@ -123,12 +123,12 @@ public class ShopService {
     }
 
     @Transactional
-    public void registerShopActive(UUID shopId) {
+    public void registerShopCompleted(UUID shopId) {
         ShopRegistration shopRegistration = shopRegistrationRepository.findByShopId(shopId).orElseThrow(
                 () -> new ShopException(ShopErrorCode.SHOP_REGISTRATION_NOT_FOUND)
         );
 
-        shopRegistration.shopRegistrationActive();
+        shopRegistration.shopRegistrationCompleted();
     }
 
     @Transactional

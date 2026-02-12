@@ -33,18 +33,18 @@ public class ShopRegistration extends BaseEntity {
     public static ShopRegistration create(UUID shopId) {
         return new ShopRegistration(
                 shopId,
-                ShopRegistrationStatus.REGISTERING
+                ShopRegistrationStatus.REQUESTED
         );
     }
 
-    public void shopRegistrationActive() {
-        if (status == ShopRegistrationStatus.REGISTERING) {
-            this.status = ShopRegistrationStatus.ACTIVE;
+    public void shopRegistrationCompleted() {
+        if (status == ShopRegistrationStatus.REQUESTED) {
+            this.status = ShopRegistrationStatus.COMPLETED;
         }
     }
 
     public void shopRegistrationFailed() {
-        if (status == ShopRegistrationStatus.REGISTERING) {
+        if (status == ShopRegistrationStatus.REQUESTED) {
             this.status = ShopRegistrationStatus.FAILED;
         }
     }
