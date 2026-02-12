@@ -112,13 +112,9 @@ public class MemberService {
     @Transactional
     public void addMemberRole(UUID memberId, UUID shopId, RoleModifyCommand command) {
         Member member = getNotDeletedMemberOrThrow(memberId);
-        ShopRegistrationCompletedEvent event = new ShopRegistrationCompletedEvent(shopId);
-        if(member.getRoles().contains(command.role())) {
-            eventPublisher.publishEvent(event);
-            return;
-        }
         member.addRole(command.role());
 
+        ShopRegistrationCompletedEvent event = new ShopRegistrationCompletedEvent(shopId);
         eventPublisher.publishEvent(event);
     }
 

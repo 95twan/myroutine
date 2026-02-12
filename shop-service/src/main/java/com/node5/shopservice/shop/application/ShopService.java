@@ -8,10 +8,7 @@ import com.node5.shopservice.shop.application.dto.ShopInfoResponse;
 import com.node5.shopservice.shop.application.dto.ShopListResponse;
 import com.node5.shopservice.shop.application.dto.ShopModifyCommand;
 import com.node5.shopservice.shop.application.dto.ShopRegisterCommand;
-import com.node5.shopservice.shop.domain.Shop;
-import com.node5.shopservice.shop.domain.ShopRegistration;
-import com.node5.shopservice.shop.domain.ShopRegistrationRepository;
-import com.node5.shopservice.shop.domain.ShopRepository;
+import com.node5.shopservice.shop.domain.*;
 import com.node5.shopservice.shop.exception.ShopErrorCode;
 import com.node5.shopservice.shop.exception.ShopException;
 import feign.FeignException;
@@ -41,11 +38,11 @@ public class ShopService {
     private final ApplicationEventPublisher eventPublisher;
 
     public Page<ShopListResponse> findMyShopList(UUID memberId, Pageable pageable) {
-        return shopRepository.findAllByMemberIdAndDeletedAtIsNull(memberId, pageable).map(ShopListResponse::from);
+        return shopRepository.findAllWithRegistration(memberId, pageable).map(ShopListResponse::from);
     }
 
     public ShopInfoResponse findMyShopInfo(UUID memberId, UUID shopId) {
-        Shop shop = shopRepository.findByIdAndMemberIdAndDeletedAtIsNull(shopId, memberId)
+        ShopInfoProjection shop = shopRepository.findByIdWithRegistration(shopId, memberId)
                 .orElseThrow(() -> new ShopException(ShopErrorCode.SHOP_NOT_FOUND));
         return ShopInfoResponse.from(shop);
     }
@@ -56,7 +53,7 @@ public class ShopService {
 
         Shop shop = shopRepository.save(Shop.create(memberId, command));
 
-        ShopRegistration shopRegistration = ShopRegistration.create(shop);
+        ShopRegistration shopRegistration = ShopRegistration.create(shop.getId());
         shopRegistrationRepository.save(shopRegistration);
 
         ShopRegisteredEvent shopRegisteredEvent = new ShopRegisteredEvent(shop.getId(), memberId);
@@ -75,11 +72,10 @@ public class ShopService {
     }
 
     @Transactional
-    public ShopInfoResponse modifyMyShopInfo(UUID memberId, UUID shopId, ShopModifyCommand command) {
+    public void modifyMyShopInfo(UUID memberId, UUID shopId, ShopModifyCommand command) {
         Shop shop = shopRepository.findByIdAndMemberIdAndDeletedAtIsNull(shopId, memberId)
                 .orElseThrow(() -> new ShopException(ShopErrorCode.SHOP_NOT_FOUND));
         shop.update(command);
-        return ShopInfoResponse.from(shop);
     }
 
     @Transactional
@@ -108,7 +104,7 @@ public class ShopService {
 
     // Todo - 삭제된 shop 이면?
     public UUID getMemberIdByShopId(UUID shopId) {
-        Shop shop = shopRepository.findById(shopId).orElseThrow(
+        Shop shop = shopRepository.findByIdAndStatusIsActive(shopId).orElseThrow(
                 () -> new ShopException(ShopErrorCode.SHOP_NOT_FOUND)
         );
 

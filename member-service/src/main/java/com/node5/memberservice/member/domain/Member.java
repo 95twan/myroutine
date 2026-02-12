@@ -72,7 +72,9 @@ public class Member extends BaseEntity {
     }
 
     public void addRole(MemberRole role) {
-        this.roles.add(role);
+        if (!roles.contains(role)) {
+            this.roles.add(role);
+        }
     }
 
     public void deleteRole(MemberRole role) {
