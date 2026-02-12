@@ -11,7 +11,6 @@ public class ShopRegistrationRepositoryAdaptor implements ShopRegistrationReposi
 
     private final ShopRegistrationJpaRepository shopRegistrationJpaRepository;
 
-
     @Override
     public void save(ShopRegistration shopRegistration) {
         shopRegistrationJpaRepository.save(shopRegistration);

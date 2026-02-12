@@ -54,4 +54,7 @@ data:
     kafka:
       topics:
         shop-deleted: shop-service.shop-deleted.v1
+        shop-registered: shop-service.shop-registered.v1
+        shop-registration-completed: member-service.shop-registration-completed.v1
+        shop-registration-failed: member-service.shop-registration-failed.v1
         member-deleted: member-service.member-deleted.v1

@@ -14,7 +14,7 @@ public class MemberDeletedProducer {
 
     private final KafkaTemplate<String, MemberDeletedEvent> kafkaTemplate;
 
-    @Value("${kafka.topics.member-deleted:member-service.member-deleted.v1}")
+    @Value("${kafka.topics.member-deleted}")
     private String topic;
 
     public void send(MemberDeletedEvent memberDeletedEvent) {

@@ -1,6 +1,5 @@
 package com.node5.shopservice.shop.infrastructure.kafka.producer;
 
-import com.node5.common.event.ShopDeletedEvent;
 import com.node5.common.event.ShopRegisteredEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
