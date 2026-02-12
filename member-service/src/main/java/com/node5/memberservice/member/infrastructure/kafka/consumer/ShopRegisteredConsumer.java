@@ -1,6 +1,5 @@
 package com.node5.memberservice.member.infrastructure.kafka.consumer;
 
-import com.node5.common.event.MemberDeletedEvent;
 import com.node5.common.event.ShopRegisteredEvent;
 import com.node5.common.event.ShopRegistrationFailedEvent;
 import com.node5.memberservice.member.application.MemberService;

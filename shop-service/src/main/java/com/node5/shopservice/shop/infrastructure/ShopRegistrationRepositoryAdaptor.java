@@ -5,6 +5,9 @@ import com.node5.shopservice.shop.domain.ShopRegistrationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
+import java.util.UUID;
+
 @Repository
 @RequiredArgsConstructor
 public class ShopRegistrationRepositoryAdaptor implements ShopRegistrationRepository {
@@ -14,5 +17,10 @@ public class ShopRegistrationRepositoryAdaptor implements ShopRegistrationReposi
     @Override
     public void save(ShopRegistration shopRegistration) {
         shopRegistrationJpaRepository.save(shopRegistration);
+    }
+
+    @Override
+    public Optional<ShopRegistration> findByShopId(UUID shopId) {
+        return shopRegistrationJpaRepository.findByShopId(shopId);
     }
 }

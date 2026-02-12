@@ -56,7 +56,7 @@ public class ShopService {
 
         Shop shop = shopRepository.save(Shop.create(memberId, command));
 
-        ShopRegistration shopRegistration = ShopRegistration.create(shop.getId());
+        ShopRegistration shopRegistration = ShopRegistration.create(shop);
         shopRegistrationRepository.save(shopRegistration);
 
         ShopRegisteredEvent shopRegisteredEvent = new ShopRegisteredEvent(shop.getId(), memberId);
@@ -125,5 +125,23 @@ public class ShopService {
     public List<UUID> getShopIdsByMemberId(UUID memberId) {
         List<Shop> shops = shopRepository.findAllByMemberIdAndDeletedAtIsNull(memberId);
         return shops.stream().map(Shop::getId).toList();
+    }
+
+    @Transactional
+    public void registerShopActive(UUID shopId) {
+        ShopRegistration shopRegistration = shopRegistrationRepository.findByShopId(shopId).orElseThrow(
+                () -> new ShopException(ShopErrorCode.SHOP_REGISTRATION_NOT_FOUND)
+        );
+
+        shopRegistration.shopRegistrationActive();
+    }
+
+    @Transactional
+    public void registerShopFailed(UUID shopId) {
+        ShopRegistration shopRegistration = shopRegistrationRepository.findByShopId(shopId).orElseThrow(
+                () -> new ShopException(ShopErrorCode.SHOP_REGISTRATION_NOT_FOUND)
+        );
+
+        shopRegistration.shopRegistrationFailed();
     }
 }

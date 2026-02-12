@@ -18,22 +18,35 @@ public class ShopRegistration extends BaseEntity {
     @Column(name = "shop_id")
     private UUID shopId;
 
+    @OneToOne(fetch = FetchType.LAZY, optional = false)
+    @MapsId
+    @JoinColumn(name = "shop_id")
+    private Shop shop;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "shop_registration_status")
     private ShopRegistrationStatus status;
 
     private ShopRegistration(
-            UUID shopId,
+            Shop shop,
             ShopRegistrationStatus shopRegistrationStatus
     ) {
-        this.shopId = shopId;
+        this.shop = shop;
         this.status = shopRegistrationStatus;
     }
 
-    public static ShopRegistration create(UUID shopId) {
+    public static ShopRegistration create(Shop shop) {
         return new ShopRegistration(
-                shopId,
+                shop,
                 ShopRegistrationStatus.REGISTERING
         );
+    }
+
+    public void shopRegistrationActive() {
+        this.status = ShopRegistrationStatus.ACTIVE;
+    }
+
+    public void shopRegistrationFailed() {
+        this.status = ShopRegistrationStatus.FAILED;
     }
 }
