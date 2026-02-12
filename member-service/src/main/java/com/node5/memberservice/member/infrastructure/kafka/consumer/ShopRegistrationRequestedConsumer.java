@@ -1,6 +1,6 @@
 package com.node5.memberservice.member.infrastructure.kafka.consumer;
 
-import com.node5.common.event.ShopRegisteredEvent;
+import com.node5.common.event.ShopRegistrationRequestedEvent;
 import com.node5.common.event.ShopRegistrationFailedEvent;
 import com.node5.memberservice.member.application.MemberService;
 import com.node5.memberservice.member.application.dto.RoleModifyCommand;
@@ -15,13 +15,13 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class ShopRegisteredConsumer {
+public class ShopRegistrationRequestedConsumer {
 
     private final MemberService memberService;
     private final ShopRegistrationFailedProducer shopRegistrationFailedProducer;
 
     @KafkaListener(topics = "${kafka.topics.shop-registered}")
-    public void consume(ShopRegisteredEvent event, Acknowledgment ack) {
+    public void consume(ShopRegistrationRequestedEvent event, Acknowledgment ack) {
         try {
             memberService.addMemberRole(event.memberId(), event.shopId(), new RoleModifyCommand(MemberRole.SELLER));
         } catch (Exception e) {

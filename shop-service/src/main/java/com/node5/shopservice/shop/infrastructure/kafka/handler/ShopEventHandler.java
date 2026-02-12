@@ -1,9 +1,9 @@
 package com.node5.shopservice.shop.infrastructure.kafka.handler;
 
 import com.node5.common.event.ShopDeletedEvent;
-import com.node5.common.event.ShopRegisteredEvent;
+import com.node5.common.event.ShopRegistrationRequestedEvent;
 import com.node5.shopservice.shop.infrastructure.kafka.producer.ShopDeletedProducer;
-import com.node5.shopservice.shop.infrastructure.kafka.producer.ShopRegisteredProducer;
+import com.node5.shopservice.shop.infrastructure.kafka.producer.ShopRegistrationRequestedProducer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
@@ -13,7 +13,7 @@ import org.springframework.transaction.event.TransactionalEventListener;
 @RequiredArgsConstructor
 public class ShopEventHandler {
     private final ShopDeletedProducer shopDeletedProducer;
-    private final ShopRegisteredProducer shopRegisteredProducer;
+    private final ShopRegistrationRequestedProducer shopRegistrationRequestedProducer;
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handle(ShopDeletedEvent event) {
@@ -21,5 +21,5 @@ public class ShopEventHandler {
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    private void handle(ShopRegisteredEvent event) { shopRegisteredProducer.send(event);}
+    private void handle(ShopRegistrationRequestedEvent event) { shopRegistrationRequestedProducer.send(event);}
 }

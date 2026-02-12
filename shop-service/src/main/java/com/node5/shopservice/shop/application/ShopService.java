@@ -1,7 +1,7 @@
 package com.node5.shopservice.shop.application;
 
 import com.node5.common.event.ShopDeletedEvent;
-import com.node5.common.event.ShopRegisteredEvent;
+import com.node5.common.event.ShopRegistrationRequestedEvent;
 import com.node5.shopservice.client.MemberClient;
 import com.node5.shopservice.client.WalletClient;
 import com.node5.shopservice.shop.application.dto.ShopInfoResponse;
@@ -56,8 +56,8 @@ public class ShopService {
         ShopRegistration shopRegistration = ShopRegistration.create(shop.getId());
         shopRegistrationRepository.save(shopRegistration);
 
-        ShopRegisteredEvent shopRegisteredEvent = new ShopRegisteredEvent(shop.getId(), memberId);
-        eventPublisher.publishEvent(shopRegisteredEvent);
+        ShopRegistrationRequestedEvent shopRegistrationRequestedEvent = new ShopRegistrationRequestedEvent(shop.getId(), memberId);
+        eventPublisher.publishEvent(shopRegistrationRequestedEvent);
     }
 
     private void checkWalletExists(UUID memberId) {
@@ -102,7 +102,6 @@ public class ShopService {
         eventPublisher.publishEvent(shopDeletedEvent);
     }
 
-    // Todo - 삭제된 shop 이면?
     public UUID getMemberIdByShopId(UUID shopId) {
         Shop shop = shopRepository.findByIdAndStatusIsActive(shopId).orElseThrow(
                 () -> new ShopException(ShopErrorCode.SHOP_NOT_FOUND)
