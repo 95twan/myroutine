@@ -27,6 +27,11 @@ public class ShopRepositoryAdaptor implements ShopRepository {
     }
 
     @Override
+    public Optional<Shop> findByIdWithRegistrationAndDeletion(UUID shopId, UUID memberId) {
+        return shopJpaRepository.findByIdWithRegistrationAndDeletion(shopId, memberId);
+    }
+
+    @Override
     public List<Shop> findAllByMemberIdAndDeletedAtIsNull(UUID memberId) {
         return shopJpaRepository.findAllByMemberIdAndDeletedAtIsNull(memberId);
     }
