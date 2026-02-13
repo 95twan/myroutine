@@ -4,6 +4,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface ShopRegistrationRepository {
-    void save(ShopRegistration shopRegistration);
+    ShopRegistration save(ShopRegistration shopRegistration);
     Optional<ShopRegistration> findByShopId(UUID shopId);
 }

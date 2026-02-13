@@ -1,7 +1,6 @@
 package com.node5.shopservice.shop.application.dto;
 
-
-import com.node5.shopservice.shop.domain.ShopInfoProjection;
+import com.node5.shopservice.shop.domain.Shop;
 
 import java.util.UUID;
 
@@ -13,15 +12,15 @@ public record ShopInfoResponse(
         String shopAddress,
         String registrationStatus
 ) {
-    public static ShopInfoResponse from(ShopInfoProjection projection) {
+    public static ShopInfoResponse from(Shop shop) {
 
         return new ShopInfoResponse(
-                projection.getId(),
-                projection.getShopName(),
-                projection.getShopEmail(),
-                projection.getShopPhoneNumber(),
-                projection.getShopAddress(),
-                projection.getRegistrationStatus().name()
+                shop.getId(),
+                shop.getShopName(),
+                shop.getShopEmail(),
+                shop.getShopPhoneNumber(),
+                shop.getShopAddress(),
+                shop.getRegistration().getStatus().name()
         );
     }
 }

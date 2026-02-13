@@ -1,8 +1,6 @@
 package com.node5.shopservice.shop.infrastructure;
 
 import com.node5.shopservice.shop.domain.Shop;
-import com.node5.shopservice.shop.domain.ShopInfoProjection;
-import com.node5.shopservice.shop.domain.ShopListProjection;
 import com.node5.shopservice.shop.domain.ShopRegistrationStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -20,23 +18,23 @@ public interface ShopJpaRepository extends JpaRepository<Shop, UUID> {
     Optional<Shop> findByIdAndMemberIdAndDeletedAtIsNull(UUID shopId, UUID memberId);
 
     @Query("""
-                select s.id as id, s.shopName as shopName, sr.status as registrationStatus
-                from Shop s
-                join ShopRegistration sr on sr.shopId = s.id
-                where s.memberId = :memberId
-                    and s.deletedAt is null
+            select s
+            from Shop s
+            join fetch s.registration sr
+            where s.memberId = :memberId
+              and s.deletedAt is null
             """)
-    Page<ShopListProjection> findAllWithRegistration(UUID memberId, Pageable pageable);
+    Page<Shop> findAllWithRegistration(UUID memberId, Pageable pageable);
 
     @Query("""
-                select s.id as id, s.shopName as shopName, s.shopEmail as shopEmail, s.shopPhoneNumber as shopPhoneNumber, s.shopAddress as shopAddress, sr.status as registrationStatus
+                select s
                 from Shop s
-                join ShopRegistration sr on sr.shopId = s.id
+                join fetch s.registration sr
                 where s.id = :shopId
-                    and s.memberId = :memberId
-                    and s.deletedAt is null
+                  and s.memberId = :memberId
+                  and s.deletedAt is null
             """)
-    Optional<ShopInfoProjection> findByIdWithRegistration(UUID shopId, UUID memberId);
+    Optional<Shop> findByIdWithRegistration(UUID shopId, UUID memberId);
 
     @Query("""
                 select s

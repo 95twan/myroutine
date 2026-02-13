@@ -17,12 +17,12 @@ public class ShopRepositoryAdaptor implements ShopRepository {
     private final ShopJpaRepository shopJpaRepository;
 
     @Override
-    public Page<ShopListProjection> findAllWithRegistration(UUID memberId, Pageable pageable) {
+    public Page<Shop> findAllWithRegistration(UUID memberId, Pageable pageable) {
         return shopJpaRepository.findAllWithRegistration(memberId, pageable);
     }
 
     @Override
-    public Optional<ShopInfoProjection> findByIdWithRegistration(UUID shopId, UUID memberId) {
+    public Optional<Shop> findByIdWithRegistration(UUID shopId, UUID memberId) {
         return shopJpaRepository.findByIdWithRegistration(shopId, memberId);
     }
 

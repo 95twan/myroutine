@@ -42,7 +42,7 @@ public class ShopService {
     }
 
     public ShopInfoResponse findMyShopInfo(UUID memberId, UUID shopId) {
-        ShopInfoProjection shop = shopRepository.findByIdWithRegistration(shopId, memberId)
+        Shop shop = shopRepository.findByIdWithRegistration(shopId, memberId)
                 .orElseThrow(() -> new ShopException(ShopErrorCode.SHOP_NOT_FOUND));
         return ShopInfoResponse.from(shop);
     }
@@ -52,9 +52,8 @@ public class ShopService {
         checkWalletExists(memberId);
 
         Shop shop = shopRepository.save(Shop.create(memberId, command));
-
-        ShopRegistration shopRegistration = ShopRegistration.create(shop.getId());
-        shopRegistrationRepository.save(shopRegistration);
+        ShopRegistration shopRegistration = shopRegistrationRepository.save(ShopRegistration.create(shop));
+        shop.setRegistration(shopRegistration);
 
         ShopRegistrationRequestedEvent shopRegistrationRequestedEvent = new ShopRegistrationRequestedEvent(shop.getId(), memberId);
         eventPublisher.publishEvent(shopRegistrationRequestedEvent);
