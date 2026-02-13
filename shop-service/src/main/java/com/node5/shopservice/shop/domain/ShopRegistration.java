@@ -29,10 +29,10 @@ public class ShopRegistration extends BaseEntity {
 
     private ShopRegistration(
             Shop shop,
-            ShopRegistrationStatus shopRegistrationStatus
+            ShopRegistrationStatus status
     ) {
         this.shop = shop;
-        this.status = shopRegistrationStatus;
+        this.status = status;
     }
 
     public static ShopRegistration create(Shop shop) {

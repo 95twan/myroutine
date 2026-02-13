@@ -20,7 +20,7 @@ public class ShopRegistrationRequestedConsumer {
     private final MemberService memberService;
     private final ShopRegistrationFailedProducer shopRegistrationFailedProducer;
 
-    @KafkaListener(topics = "${kafka.topics.shop-registered}")
+    @KafkaListener(topics = "${kafka.topics.shop-registration-requested}")
     public void consume(ShopRegistrationRequestedEvent event, Acknowledgment ack) {
         try {
             memberService.addMemberRole(event.memberId(), event.shopId(), new RoleModifyCommand(MemberRole.SELLER));

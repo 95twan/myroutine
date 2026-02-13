@@ -14,7 +14,7 @@ public class ShopRegistrationRequestedProducer {
 
     private final KafkaTemplate<String, ShopRegistrationRequestedEvent> kafkaTemplate;
 
-    @Value("${kafka.topics.shop-registered}")
+    @Value("${kafka.topics.shop-registration-requested}")
     private String topic;
 
     public void send(ShopRegistrationRequestedEvent shopRegistrationRequestedEvent) {

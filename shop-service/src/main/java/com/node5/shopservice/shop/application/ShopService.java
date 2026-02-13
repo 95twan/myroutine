@@ -1,8 +1,8 @@
 package com.node5.shopservice.shop.application;
 
 import com.node5.common.event.ShopDeletedEvent;
+import com.node5.common.event.ShopDeletionRequestedEvent;
 import com.node5.common.event.ShopRegistrationRequestedEvent;
-import com.node5.shopservice.client.MemberClient;
 import com.node5.shopservice.client.WalletClient;
 import com.node5.shopservice.shop.application.dto.ShopInfoResponse;
 import com.node5.shopservice.shop.application.dto.ShopListResponse;
@@ -29,12 +29,10 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class ShopService {
 
-    private static final String ROLE_SELLER = "SELLER";
-
     private final ShopRepository shopRepository;
     private final ShopRegistrationRepository shopRegistrationRepository;
+    private final ShopDeletionRepository shopDeletionRepository;
     private final WalletClient walletClient;
-    private final MemberClient memberClient;
     private final ApplicationEventPublisher eventPublisher;
 
     public Page<ShopListResponse> findMyShopList(UUID memberId, Pageable pageable) {
@@ -52,8 +50,7 @@ public class ShopService {
         checkWalletExists(memberId);
 
         Shop shop = shopRepository.save(Shop.create(memberId, command));
-        ShopRegistration shopRegistration = shopRegistrationRepository.save(ShopRegistration.create(shop));
-        shop.setRegistration(shopRegistration);
+        shopRegistrationRepository.save(ShopRegistration.create(shop));
 
         ShopRegistrationRequestedEvent shopRegistrationRequestedEvent = new ShopRegistrationRequestedEvent(shop.getId(), memberId);
         eventPublisher.publishEvent(shopRegistrationRequestedEvent);
@@ -79,29 +76,37 @@ public class ShopService {
 
     @Transactional
     public void deleteMyShop(UUID memberId, UUID shopId) {
-        Shop shop = shopRepository.findByIdWithRegistration(shopId, memberId)
+        Shop shop = shopRepository.findByIdWithRegistrationAndDeletion(shopId, memberId)
                 .orElseThrow(() -> new ShopException(ShopErrorCode.SHOP_NOT_FOUND));
+
+        // 멱등 처리
+        if (shop.getDeletedAt() != null) {
+            return;
+        }
+        if (shop.getDeletion() != null) {
+            if (shop.getDeletion().getStatus() == ShopDeletionStatus.REQUESTED) {
+                return;
+            } else if (shop.getDeletion().getStatus() == ShopDeletionStatus.FAILED || shop.getDeletion().getStatus() == ShopDeletionStatus.DEAD) {
+                throw new ShopException(ShopErrorCode.SHOP_DELETE_NOT_ALLOWED);
+            }
+        }
+
         if (shop.getRegistration() == null || shop.getRegistration().getStatus() != ShopRegistrationStatus.COMPLETED) {
             throw new ShopException(ShopErrorCode.SHOP_DELETE_NOT_ALLOWED);
         }
 
-        ShopDeletedEvent shopDeletedEvent = new ShopDeletedEvent(shop.getId());
-
         shop.delete();
-        shopRepository.flush();
 
         int shopCount = shopRepository.countByMemberIdAndDeletedAtIsNull(memberId);
-        if (shopCount == 0) {
-            try {
-                memberClient.deleteMemberRole(memberId, ROLE_SELLER);
-            } catch (Exception e) {
-                log.error("memberClient.updateMemberRoles error : {}", e.getMessage());
-                throw new ShopException(ShopErrorCode.ROLE_UPDATE_FAILED);
-            }
+        if (shopCount != 0) {
+            shopDeletionRepository.save(ShopDeletion.create(shop, ShopDeletionStatus.COMPLETED));
+            ShopDeletedEvent shopDeletedEvent = new ShopDeletedEvent(shop.getId());
+            eventPublisher.publishEvent(shopDeletedEvent);
+        } else {
+            shopDeletionRepository.save(ShopDeletion.create(shop, ShopDeletionStatus.REQUESTED));
+            ShopDeletionRequestedEvent shopDeletionRequestedEvent = new ShopDeletionRequestedEvent(shop.getId(), memberId);
+            eventPublisher.publishEvent(shopDeletionRequestedEvent);
         }
-
-        // 가게 삭제 topic 발행
-        eventPublisher.publishEvent(shopDeletedEvent);
     }
 
     public UUID getMemberIdByShopId(UUID shopId) {

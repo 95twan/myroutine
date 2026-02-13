@@ -51,6 +51,10 @@ public class Shop extends BaseEntity {
     @OneToOne(mappedBy = "shop", fetch = FetchType.EAGER)
     private ShopRegistration registration;
 
+    @Setter
+    @OneToOne(mappedBy = "shop", fetch = FetchType.EAGER)
+    private ShopDeletion deletion;
+
     private Shop(
             UUID memberId,
             String shopEmail,
