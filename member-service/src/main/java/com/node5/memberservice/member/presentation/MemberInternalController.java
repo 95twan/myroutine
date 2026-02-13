@@ -24,14 +24,4 @@ public class MemberInternalController {
     public String getMemberNickname(@RequestHeader("Member-Id") UUID memberId){
         return memberService.getMemberNickname(memberId);
     }
-
-    @DeleteMapping("/{memberId}/roles/{role}")
-    public ResponseEntity<Void> deleteMemberRole(
-            @PathVariable UUID memberId,
-            @PathVariable String role
-    ) {
-        RoleModifyRequest request = new RoleModifyRequest(role);
-        memberService.deleteMemberRole(memberId, request.toCommand());
-        return ResponseEntity.ok().build();
-    }
 }

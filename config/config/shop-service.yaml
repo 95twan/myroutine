@@ -49,4 +49,6 @@ kafka:
     shop-registration-completed: member-service.shop-registration-completed.v1
     shop-registration-failed: member-service.shop-registration-failed.v1
     shop-deletion-requested: shop-service.shop-deletion-requested.v1
+    shop-deletion-completed: member-service.shop-deletion-completed.v1
+    shop-deletion-failed: member-service.shop-deletion-failed.v1
     member-deleted: member-service.member-deleted.v1

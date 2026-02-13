@@ -78,7 +78,9 @@ public class Member extends BaseEntity {
     }
 
     public void deleteRole(MemberRole role) {
-        this.roles.remove(role);
+        if (roles.contains(role)) {
+            this.roles.remove(role);
+        }
     }
 
     public void modifyStatus(MemberStatus status) {
