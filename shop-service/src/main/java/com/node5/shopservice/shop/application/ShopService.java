@@ -156,10 +156,10 @@ public class ShopService {
                 () -> new ShopException(ShopErrorCode.SHOP_DELETION_NOT_FOUND)
         );
 
-        shopDeletion.shopDeletionCompleted();
-
-        ShopDeletedEvent shopDeletedEvent = new ShopDeletedEvent(shopId);
-        eventPublisher.publishEvent(shopDeletedEvent);
+        if(shopDeletion.shopDeletionCompleted()) {
+            ShopDeletedEvent shopDeletedEvent = new ShopDeletedEvent(shopId);
+            eventPublisher.publishEvent(shopDeletedEvent);
+        }
     }
 
     @Transactional

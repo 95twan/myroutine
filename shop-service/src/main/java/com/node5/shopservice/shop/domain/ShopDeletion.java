@@ -39,10 +39,12 @@ public class ShopDeletion extends BaseEntity {
         return new ShopDeletion(shop, status);
     }
 
-    public void shopDeletionCompleted() {
+    public boolean shopDeletionCompleted() {
         if (status == ShopDeletionStatus.REQUESTED) {
             this.status = ShopDeletionStatus.COMPLETED;
+            return true;
         }
+        return false;
     }
 
     public void shopDeletionFailed() {
