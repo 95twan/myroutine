@@ -80,15 +80,18 @@ public class ShopService {
                 .orElseThrow(() -> new ShopException(ShopErrorCode.SHOP_NOT_FOUND));
 
         // 멱등 처리
-        if (shop.getDeletedAt() != null) {
-            return;
-        }
         if (shop.getDeletion() != null) {
-            if (shop.getDeletion().getStatus() == ShopDeletionStatus.REQUESTED) {
-                return;
-            } else if (shop.getDeletion().getStatus() == ShopDeletionStatus.FAILED || shop.getDeletion().getStatus() == ShopDeletionStatus.DEAD) {
+            ShopDeletionStatus status = shop.getDeletion().getStatus();
+            if (status == ShopDeletionStatus.FAILED || status == ShopDeletionStatus.DEAD) {
                 throw new ShopException(ShopErrorCode.SHOP_DELETE_NOT_ALLOWED);
             }
+            if (status == ShopDeletionStatus.REQUESTED || status == ShopDeletionStatus.COMPLETED) {
+                return;
+            }
+        }
+
+        if (shop.getDeletedAt() != null) {
+            return;
         }
 
         if (shop.getRegistration() == null || shop.getRegistration().getStatus() != ShopRegistrationStatus.COMPLETED) {
@@ -145,5 +148,26 @@ public class ShopService {
         );
 
         shopRegistration.shopRegistrationFailed();
+    }
+
+    @Transactional
+    public void deleteShopCompleted(UUID shopId) {
+        ShopDeletion shopDeletion = shopDeletionRepository.findByShopId(shopId).orElseThrow(
+                () -> new ShopException(ShopErrorCode.SHOP_DELETION_NOT_FOUND)
+        );
+
+        shopDeletion.shopDeletionCompleted();
+
+        ShopDeletedEvent shopDeletedEvent = new ShopDeletedEvent(shopId);
+        eventPublisher.publishEvent(shopDeletedEvent);
+    }
+
+    @Transactional
+    public void deleteShopFailed(UUID shopId) {
+        ShopDeletion shopDeletion = shopDeletionRepository.findByShopId(shopId).orElseThrow(
+                () -> new ShopException(ShopErrorCode.SHOP_DELETION_NOT_FOUND)
+        );
+
+        shopDeletion.shopDeletionFailed();
     }
 }

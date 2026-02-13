@@ -11,7 +11,8 @@ public enum ShopErrorCode implements BaseErrorCode {
     ROLE_UPDATE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR.value(), "SHOP_003", "회원 권한 업데이트에 실패했습니다."),
     UNCAUGHT_EXCEPTION(HttpStatus.INTERNAL_SERVER_ERROR.value(), "SHOP_004", "알 수 없는 서버 에러"),
     SHOP_REGISTRATION_NOT_FOUND(HttpStatus.NOT_FOUND.value(), "SHOP_005", "상점 등록 정보를 찾을 수 없습니다."),
-    SHOP_DELETE_NOT_ALLOWED(HttpStatus.CONFLICT.value(), "SHOP_006", "등록 진행 중인 상점은 삭제할 수 없습니다.");
+    SHOP_DELETION_NOT_FOUND(HttpStatus.NOT_FOUND.value(), "SHOP_006", "상점 삭제 정보를 찾을 수 없습니다."),
+    SHOP_DELETE_NOT_ALLOWED(HttpStatus.CONFLICT.value(), "SHOP_007", "등록 진행 중인 상점은 삭제할 수 없습니다.");
 
     private final int status;
     private final String code;
