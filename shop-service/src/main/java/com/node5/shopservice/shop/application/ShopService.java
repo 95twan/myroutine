@@ -79,8 +79,11 @@ public class ShopService {
 
     @Transactional
     public void deleteMyShop(UUID memberId, UUID shopId) {
-        Shop shop = shopRepository.findByIdAndMemberIdAndDeletedAtIsNull(shopId, memberId)
+        Shop shop = shopRepository.findByIdWithRegistration(shopId, memberId)
                 .orElseThrow(() -> new ShopException(ShopErrorCode.SHOP_NOT_FOUND));
+        if (shop.getRegistration() == null || shop.getRegistration().getStatus() != ShopRegistrationStatus.COMPLETED) {
+            throw new ShopException(ShopErrorCode.SHOP_DELETE_NOT_ALLOWED);
+        }
 
         ShopDeletedEvent shopDeletedEvent = new ShopDeletedEvent(shop.getId());
 
