@@ -15,7 +15,10 @@ public class ShopRegistrationCompletedConsumer {
 
     private final ShopService shopService;
 
-    @KafkaListener(topics = "${kafka.topics.shop-registration-completed}")
+    @KafkaListener(
+            topics = "${kafka.topics.shop-registration-completed}",
+            containerFactory = "retryKafkaListenerContainerFactory"
+    )
     public void consume(ShopRegistrationCompletedEvent event, Acknowledgment ack) {
         shopService.registerShopCompleted(event.shopId());
         ack.acknowledge();

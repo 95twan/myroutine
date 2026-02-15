@@ -15,7 +15,10 @@ public class ShopDeletionDeadConsumer {
 
     private final ShopService shopService;
 
-    @KafkaListener(topics = "${kafka.topics.shop-deletion-dead}")
+    @KafkaListener(
+            topics = "${kafka.topics.shop-deletion-dead}",
+            containerFactory = "retryKafkaListenerContainerFactory"
+    )
     public void consume(ShopDeletionDeadEvent event, Acknowledgment ack) {
         shopService.deleteShopDead(event.shopId());
         ack.acknowledge();
