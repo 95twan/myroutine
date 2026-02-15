@@ -151,6 +151,15 @@ public class ShopService {
     }
 
     @Transactional
+    public void registerShopDead(UUID shopId) {
+        ShopRegistration shopRegistration = shopRegistrationRepository.findByShopId(shopId).orElseThrow(
+                () -> new ShopException(ShopErrorCode.SHOP_REGISTRATION_NOT_FOUND)
+        );
+
+        shopRegistration.shopRegistrationDead();
+    }
+
+    @Transactional
     public void deleteShopCompleted(UUID shopId) {
         ShopDeletion shopDeletion = shopDeletionRepository.findByShopId(shopId).orElseThrow(
                 () -> new ShopException(ShopErrorCode.SHOP_DELETION_NOT_FOUND)
@@ -169,5 +178,14 @@ public class ShopService {
         );
 
         shopDeletion.shopDeletionFailed();
+    }
+
+    @Transactional
+    public void deleteShopDead(UUID shopId) {
+        ShopDeletion shopDeletion = shopDeletionRepository.findByShopId(shopId).orElseThrow(
+                () -> new ShopException(ShopErrorCode.SHOP_DELETION_NOT_FOUND)
+        );
+
+        shopDeletion.shopDeletionDead();
     }
 }
