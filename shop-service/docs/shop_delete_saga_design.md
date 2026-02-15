@@ -94,13 +94,14 @@
 
 #### A. 상태 분리
 
-- ShopDeletion 상태: `REQUESTED -> COMPLETED / FAILED`
+- ShopDeletion 상태: `REQUESTED -> COMPLETED / FAILED / DEAD`
 
 #### B. 이벤트 정의
 
 - `ShopDeletionRequestedEvent`
 - `ShopDeletionCompletedEvent`
 - `ShopDeletionFailedEvent`
+- `ShopDeletionDeadEvent`
 
 참고:
 
@@ -131,9 +132,16 @@
 #### 실패 흐름
 
 1. 1~5 동일
-2. `member-service`: 권한 회수 실패
+2. `member-service`: 권한 회수가 비즈니스 규칙으로 실패
 3. `member-service` -> Kafka: `ShopDeletionFailedEvent`
 4. `shop-service`: `ShopDeletion` 상태 `FAILED` 전이
+
+#### 최종 실패 흐름 (DEAD)
+
+1. 인프라 장애로 처리/발행 실패가 반복됨
+2. `member-service`: Kafka 재시도 소진 후 DLT 격리
+3. `member-service` -> Kafka: `ShopDeletionDeadEvent`
+4. `shop-service`: `ShopDeletion` 상태 `DEAD` 전이
 
 ---
 
@@ -163,19 +171,50 @@ sequenceDiagram
             S->>K: consume ShopDeletionCompletedEvent
             S->>S: ShopDeletion COMPLETED
             S->>K: ShopDeletedEvent
-        else 권한 회수 실패
+        else 권한 회수 비즈니스 실패
             M->>K: ShopDeletionFailedEvent
             S->>K: consume ShopDeletionFailedEvent
             S->>S: ShopDeletion FAILED
+        else 인프라 실패 반복 후 재시도 소진
+            M->>K: DLT 처리
+            M->>K: ShopDeletionDeadEvent
+            S->>K: consume ShopDeletionDeadEvent
+            S->>S: ShopDeletion DEAD
         end
     end
 ```
 
 ---
 
-### 5. 추가 고려 사항
+## 5. Retry + DLT + DEAD 구현
 
-- 이벤트 재시도 및 DLQ 구성
+상황:
+
+- 삭제 Saga도 실패 원인이 비즈니스/인프라로 섞여 있었다.
+- 동일 정책으로 처리하면 재시도 기준과 상태 전이 의미가 흐려졌다.
+
+판단:
+
+- 실패를 의미 기준으로 분리해야 재시도 정책과 상태 확정을 동시에 지킬 수 있다.
+- DLT를 외부 계약으로 노출하면 서비스 경계가 약해진다.
+
+적용:
+
+- 비즈니스 실패는 `FAILED`로 즉시 확정했다.
+- 인프라 실패는 Kafka 재시도 + DLT 경로로 위임했다.
+- DLT 메시지는 내부에서 `DEAD` 도메인 이벤트로 변환해 shop-service 상태 전이에 반영했다.
+- 이 패턴을 삭제 흐름뿐 아니라 Saga consumer 공통 정책으로 적용했다.
+
+결과:
+
+- 실패 처리 기준이 단순해지고 일관성이 높아졌다.
+- 서비스 간 계약은 `FAILED/DEAD` 이벤트 중심으로 유지됐다.
+- 운영 복구 경로는 내부(DLT), 최종 상태는 도메인 이벤트로 확정하는 구조가 정착됐다.
+
+---
+
+## 6. 추가 고려 사항
+
 - Outbox 도입
   - 현재는 트랜잭션 커밋과 이벤트 발행이 분리되어 있어 **발행 실패 시 누락 위험**이 존재
   - Outbox를 적용하면 **DB 커밋과 이벤트 기록을 원자적으로 보장**할 수 있음
