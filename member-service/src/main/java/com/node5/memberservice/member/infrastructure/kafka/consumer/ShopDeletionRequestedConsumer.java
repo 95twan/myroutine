@@ -5,6 +5,7 @@ import com.node5.common.event.ShopDeletionRequestedEvent;
 import com.node5.memberservice.member.application.MemberService;
 import com.node5.memberservice.member.application.dto.RoleModifyCommand;
 import com.node5.memberservice.member.domain.MemberRole;
+import com.node5.memberservice.member.exception.MemberException;
 import com.node5.memberservice.member.infrastructure.kafka.producer.ShopDeletionFailedProducer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,14 +21,17 @@ public class ShopDeletionRequestedConsumer {
     private final MemberService memberService;
     private final ShopDeletionFailedProducer shopDeletionFailedProducer;
 
-    @KafkaListener(topics = "${kafka.topics.shop-deletion-requested}")
+    @KafkaListener(
+            topics = "${kafka.topics.shop-deletion-requested}",
+            containerFactory = "retryKafkaListenerContainerFactory"
+    )
     public void consume(ShopDeletionRequestedEvent event, Acknowledgment ack) {
         try {
             memberService.deleteMemberRole(event.memberId(), event.shopId(), new RoleModifyCommand(MemberRole.SELLER));
-        } catch (Exception e) {
+            ack.acknowledge();
+        } catch (MemberException e) {
             ShopDeletionFailedEvent shopDeletionFailedEvent = new ShopDeletionFailedEvent(event.shopId());
-            shopDeletionFailedProducer.send(shopDeletionFailedEvent);
-        } finally {
+            shopDeletionFailedProducer.sendAndWait(shopDeletionFailedEvent);
             ack.acknowledge();
         }
     }

@@ -43,6 +43,8 @@ data:
           port: 6379
       kafka:
         bootstrap-servers: ${KAFKA_HOST}:9092
+        listener:
+          ack-mode: manual
         producer:
           key-serializer: org.apache.kafka.common.serialization.StringSerializer
           value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
@@ -91,7 +93,9 @@ data:
         shop-registration-requested: shop-service.shop-registration-requested.v1
         shop-registration-completed: member-service.shop-registration-completed.v1
         shop-registration-failed: member-service.shop-registration-failed.v1
+        shop-registration-dead: member-service.shop-registration-dead.v1
         shop-deletion-requested: shop-service.shop-deletion-requested.v1
         shop-deletion-completed: member-service.shop-deletion-completed.v1
         shop-deletion-failed: member-service.shop-deletion-failed.v1
+        shop-deletion-dead: member-service.shop-deletion-dead.v1
         member-deleted: member-service.member-deleted.v1
