@@ -50,4 +50,10 @@ public class ShopRegistration extends BaseEntity {
             this.status = ShopRegistrationStatus.FAILED;
         }
     }
+
+    public void shopRegistrationDead() {
+        if (status == ShopRegistrationStatus.REQUESTED) {
+            this.status = ShopRegistrationStatus.DEAD;
+        }
+    }
 }

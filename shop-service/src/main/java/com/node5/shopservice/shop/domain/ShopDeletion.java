@@ -52,4 +52,10 @@ public class ShopDeletion extends BaseEntity {
             this.status = ShopDeletionStatus.FAILED;
         }
     }
+
+    public void shopDeletionDead() {
+        if (status == ShopDeletionStatus.REQUESTED) {
+            this.status = ShopDeletionStatus.DEAD;
+        }
+    }
 }
