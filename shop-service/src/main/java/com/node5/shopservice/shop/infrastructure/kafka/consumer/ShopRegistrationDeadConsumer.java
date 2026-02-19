@@ -20,7 +20,7 @@ public class ShopRegistrationDeadConsumer {
             containerFactory = "retryKafkaListenerContainerFactory"
     )
     public void consume(ShopRegistrationDeadEvent event, Acknowledgment ack) {
-        shopService.registerShopDead(event.shopId());
+        shopService.registerShopDead(event);
         ack.acknowledge();
     }
 }

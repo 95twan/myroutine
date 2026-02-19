@@ -1,8 +1,6 @@
 package com.node5.shopservice.shop.application;
 
-import com.node5.common.event.ShopDeletedEvent;
-import com.node5.common.event.ShopDeletionRequestedEvent;
-import com.node5.common.event.ShopRegistrationRequestedEvent;
+import com.node5.common.event.*;
 import com.node5.shopservice.client.WalletClient;
 import com.node5.shopservice.shop.application.dto.ShopInfoResponse;
 import com.node5.shopservice.shop.application.dto.ShopListResponse;
@@ -36,11 +34,11 @@ public class ShopService {
     private final ApplicationEventPublisher eventPublisher;
 
     public Page<ShopListResponse> findMyShopList(UUID memberId, Pageable pageable) {
-        return shopRepository.findAllWithRegistration(memberId, pageable).map(ShopListResponse::from);
+        return shopRepository.findAllWithStatusAndDeletedAtIsNull(memberId, pageable).map(ShopListResponse::from);
     }
 
     public ShopInfoResponse findMyShopInfo(UUID memberId, UUID shopId) {
-        Shop shop = shopRepository.findByIdWithRegistration(shopId, memberId)
+        Shop shop = shopRepository.findByIdWithStatusAndDeletedAtIsNull(shopId, memberId)
                 .orElseThrow(() -> new ShopException(ShopErrorCode.SHOP_NOT_FOUND));
         return ShopInfoResponse.from(shop);
     }
@@ -69,14 +67,23 @@ public class ShopService {
 
     @Transactional
     public void modifyMyShopInfo(UUID memberId, UUID shopId, ShopModifyCommand command) {
-        Shop shop = shopRepository.findByIdAndMemberIdAndDeletedAtIsNull(shopId, memberId)
+        Shop shop = shopRepository.findByIdWithStatusAndDeletedAtIsNull(shopId, memberId)
                 .orElseThrow(() -> new ShopException(ShopErrorCode.SHOP_NOT_FOUND));
+
+        if (shop.getRegistration() != null && shop.getRegistration().getStatus() == ShopRegistrationStatus.REQUESTED) {
+            throw new ShopException(ShopErrorCode.SHOP_IS_REGISTERING);
+        }
+
+        if (shop.getDeletion() != null && shop.getDeletion().getStatus() == ShopDeletionStatus.REQUESTED) {
+            throw new ShopException(ShopErrorCode.SHOP_IS_DELETING);
+        }
+
         shop.update(command);
     }
 
     @Transactional
     public void deleteMyShop(UUID memberId, UUID shopId) {
-        Shop shop = shopRepository.findByIdWithRegistrationAndDeletion(shopId, memberId)
+        Shop shop = shopRepository.findByIdWithStatusAndDeletedAtIsNull(shopId, memberId)
                 .orElseThrow(() -> new ShopException(ShopErrorCode.SHOP_NOT_FOUND));
 
         // 멱등 처리
@@ -90,30 +97,24 @@ public class ShopService {
             }
         }
 
-        if (shop.getDeletedAt() != null) {
-            return;
-        }
-
         if (shop.getRegistration() == null || shop.getRegistration().getStatus() != ShopRegistrationStatus.COMPLETED) {
             throw new ShopException(ShopErrorCode.SHOP_DELETE_NOT_ALLOWED);
         }
 
-        shop.delete();
+        int shopCount = shopRepository.countByMemberIdAndDeletedAtIsNullAndIdNot(memberId, shop.getId());
 
-        int shopCount = shopRepository.countByMemberIdAndDeletedAtIsNull(memberId);
+        shopDeletionRepository.save(ShopDeletion.create(shop, ShopDeletionStatus.REQUESTED));
+
         if (shopCount != 0) {
-            shopDeletionRepository.save(ShopDeletion.create(shop, ShopDeletionStatus.COMPLETED));
-            ShopDeletedEvent shopDeletedEvent = new ShopDeletedEvent(shop.getId());
-            eventPublisher.publishEvent(shopDeletedEvent);
+            deleteShopCompleted(shop.getId());
         } else {
-            shopDeletionRepository.save(ShopDeletion.create(shop, ShopDeletionStatus.REQUESTED));
             ShopDeletionRequestedEvent shopDeletionRequestedEvent = new ShopDeletionRequestedEvent(shop.getId(), memberId);
             eventPublisher.publishEvent(shopDeletionRequestedEvent);
         }
     }
 
     public UUID getMemberIdByShopId(UUID shopId) {
-        Shop shop = shopRepository.findByIdAndStatusIsCompleted(shopId).orElseThrow(
+        Shop shop = shopRepository.findByIdAndRegistrationStatusIs(shopId, ShopRegistrationStatus.COMPLETED).orElseThrow(
                 () -> new ShopException(ShopErrorCode.SHOP_NOT_FOUND)
         );
 
@@ -142,21 +143,21 @@ public class ShopService {
     }
 
     @Transactional
-    public void registerShopFailed(UUID shopId) {
-        ShopRegistration shopRegistration = shopRegistrationRepository.findByShopId(shopId).orElseThrow(
+    public void registerShopFailed(ShopRegistrationFailedEvent event) {
+        ShopRegistration shopRegistration = shopRegistrationRepository.findByShopId(event.shopId()).orElseThrow(
                 () -> new ShopException(ShopErrorCode.SHOP_REGISTRATION_NOT_FOUND)
         );
 
-        shopRegistration.shopRegistrationFailed();
+        shopRegistration.shopRegistrationFailed(event.reasonCode(), event.reasonMessage());
     }
 
     @Transactional
-    public void registerShopDead(UUID shopId) {
-        ShopRegistration shopRegistration = shopRegistrationRepository.findByShopId(shopId).orElseThrow(
+    public void registerShopDead(ShopRegistrationDeadEvent event) {
+        ShopRegistration shopRegistration = shopRegistrationRepository.findByShopId(event.shopId()).orElseThrow(
                 () -> new ShopException(ShopErrorCode.SHOP_REGISTRATION_NOT_FOUND)
         );
 
-        shopRegistration.shopRegistrationDead();
+        shopRegistration.shopRegistrationDead(event.reasonCode(), event.reasonMessage());
     }
 
     @Transactional
@@ -166,26 +167,28 @@ public class ShopService {
         );
 
         if(shopDeletion.shopDeletionCompleted()) {
+            Shop shop = shopDeletion.getShop();
+            shop.delete();
             ShopDeletedEvent shopDeletedEvent = new ShopDeletedEvent(shopId);
             eventPublisher.publishEvent(shopDeletedEvent);
         }
     }
 
     @Transactional
-    public void deleteShopFailed(UUID shopId) {
-        ShopDeletion shopDeletion = shopDeletionRepository.findByShopId(shopId).orElseThrow(
+    public void deleteShopFailed(ShopDeletionFailedEvent event) {
+        ShopDeletion shopDeletion = shopDeletionRepository.findByShopId(event.shopId()).orElseThrow(
                 () -> new ShopException(ShopErrorCode.SHOP_DELETION_NOT_FOUND)
         );
 
-        shopDeletion.shopDeletionFailed();
+        shopDeletion.shopDeletionFailed(event.reasonCode(), event.reasonMessage());
     }
 
     @Transactional
-    public void deleteShopDead(UUID shopId) {
-        ShopDeletion shopDeletion = shopDeletionRepository.findByShopId(shopId).orElseThrow(
+    public void deleteShopDead(ShopDeletionDeadEvent event) {
+        ShopDeletion shopDeletion = shopDeletionRepository.findByShopId(event.shopId()).orElseThrow(
                 () -> new ShopException(ShopErrorCode.SHOP_DELETION_NOT_FOUND)
         );
 
-        shopDeletion.shopDeletionDead();
+        shopDeletion.shopDeletionDead(event.reasonCode(), event.reasonMessage());
     }
 }

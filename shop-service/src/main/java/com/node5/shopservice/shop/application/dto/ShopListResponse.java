@@ -7,9 +7,27 @@ import java.util.UUID;
 public record ShopListResponse(
         UUID shopId,
         String shopName,
-        String registrationStatus
+        String status
 ) {
     public static ShopListResponse from(Shop shop) {
-        return new ShopListResponse(shop.getId(), shop.getShopName(), shop.getRegistration().getStatus().name());
+        String status;
+
+        if (shop.getDeletion() != null) {
+            status = switch (shop.getDeletion().getStatus()) {
+                case COMPLETED -> "DELETED";
+                case REQUESTED -> "DELETING";
+                case FAILED -> "DELETE_FAILED";
+                case DEAD -> "DELETE_DEAD";
+            };
+        } else  {
+            status = switch (shop.getRegistration().getStatus()) {
+                case COMPLETED -> "ACTIVE";
+                case REQUESTED -> "REGISTERING";
+                case FAILED -> "REGISTER_FAILED";
+                case DEAD -> "REGISTER_DEAD";
+            };
+        }
+
+        return new ShopListResponse(shop.getId(), shop.getShopName(), status);
     }
 }

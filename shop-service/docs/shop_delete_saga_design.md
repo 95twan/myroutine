@@ -121,27 +121,27 @@
 #### 성공 흐름
 
 1. Client -> `shop-service`: `deleteMyShop`
-2. `shop-service`: Shop soft delete
+2. `shop-service`: `ShopDeletion` 생성(`REQUESTED`)
 3. `shop-service`: 상점 수 조건 평가(`count == 0`)
-4. (마지막 상점이 아닌 경우) `shop-service`: `ShopDeletion` 상태 `COMPLETED` 전이 + `ShopDeletedEvent` 발행
-5. (마지막 상점인 경우) `shop-service`: `ShopDeletion` 생성(`REQUESTED`) + `ShopDeletionRequestedEvent` 발행
+4. (마지막 상점이 아닌 경우) `shop-service`: `ShopDeletion` 상태 `COMPLETED` 전이 + Shop soft delete + `ShopDeletedEvent` 발행
+5. (마지막 상점인 경우) `shop-service`: `ShopDeletionRequestedEvent` 발행
 6. `member-service`: SELLER 권한 회수(이미 SELLER가 없다면 no-op)
 7. `member-service` -> Kafka: `ShopDeletionCompletedEvent`
-8. `shop-service`: `ShopDeletion` 상태 `COMPLETED` 전이 + `ShopDeletedEvent` 발행
+8. `shop-service`: `ShopDeletion` 상태 `COMPLETED` 전이 + Shop soft delete + `ShopDeletedEvent` 발행
 
 #### 실패 흐름
 
 1. 1~5 동일
 2. `member-service`: 권한 회수가 비즈니스 규칙으로 실패
 3. `member-service` -> Kafka: `ShopDeletionFailedEvent`
-4. `shop-service`: `ShopDeletion` 상태 `FAILED` 전이
+4. `shop-service`: `ShopDeletion` 상태 `FAILED` 전이 + 실패 사유 저장
 
 #### 최종 실패 흐름 (DEAD)
 
 1. 인프라 장애로 처리/발행 실패가 반복됨
 2. `member-service`: Kafka 재시도 소진 후 DLT 격리
 3. `member-service` -> Kafka: `ShopDeletionDeadEvent`
-4. `shop-service`: `ShopDeletion` 상태 `DEAD` 전이
+4. `shop-service`: `ShopDeletion` 상태 `DEAD` 전이 + 실패 사유 저장
 
 ---
 
@@ -156,13 +156,13 @@ sequenceDiagram
     participant M as member-service
 
     C->>S: deleteMyShop
-    S->>S: Shop soft delete
+    S->>S: ShopDeletion 상태 저장(REQUESTED)
     S->>S: count == 0 조건 평가
     alt count > 0
         S->>S: ShopDeletion COMPLETED
+        S->>S: Shop soft delete
         S->>K: ShopDeletedEvent
     else count == 0
-        S->>S: ShopDeletion 상태 저장(REQUESTED)
         S->>K: ShopDeletionRequestedEvent
         M->>K: consume ShopDeletionRequestedEvent
         M->>M: deleteMemberRole(SELLER) (멱등)
@@ -170,16 +170,17 @@ sequenceDiagram
             M->>K: ShopDeletionCompletedEvent
             S->>K: consume ShopDeletionCompletedEvent
             S->>S: ShopDeletion COMPLETED
+            S->>S: Shop soft delete
             S->>K: ShopDeletedEvent
         else 권한 회수 비즈니스 실패
             M->>K: ShopDeletionFailedEvent
             S->>K: consume ShopDeletionFailedEvent
-            S->>S: ShopDeletion FAILED
+            S->>S: ShopDeletion FAILED + reason 저장
         else 인프라 실패 반복 후 재시도 소진
             M->>K: DLT 처리
             M->>K: ShopDeletionDeadEvent
             S->>K: consume ShopDeletionDeadEvent
-            S->>S: ShopDeletion DEAD
+            S->>S: ShopDeletion DEAD + reason 저장
         end
     end
 ```
@@ -234,3 +235,4 @@ sequenceDiagram
   - 개선 방식: member 단위 직렬화 또는 비동기 재평가 방식으로 개선 필요
 - 실패 정책
   - `FAILED`는 즉시 사용자 오류로 노출하지 않고 운영 처리 대상
+  - `FAILED/DEAD` 상태에서는 삭제 재요청을 차단하고 운영자 개입으로 처리

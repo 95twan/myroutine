@@ -8,8 +8,11 @@ import com.node5.memberservice.member.infrastructure.kafka.producer.ShopDeletion
 import com.node5.memberservice.member.infrastructure.kafka.producer.ShopRegistrationDeadProducer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.common.header.Header;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
+import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.stereotype.Component;
 
 @Slf4j
@@ -24,9 +27,12 @@ public class ShopDLTConsumer {
             topics = "${kafka.topics.shop-registration-requested}.dlt",
             containerFactory = "dltKafkaListenerContainerFactory"
     )
-    public void consume(ShopRegistrationRequestedEvent event, Acknowledgment ack) {
+    public void consume(ShopRegistrationRequestedEvent event, Acknowledgment ack, ConsumerRecord<String, ShopRegistrationRequestedEvent> record) {
 
-        ShopRegistrationDeadEvent shopRegistrationDeadEvent = new ShopRegistrationDeadEvent(event.shopId());
+        String reasonCode  = "DLT_EXHAUSTED";
+        String reasonMessage = header(record, KafkaHeaders.DLT_EXCEPTION_MESSAGE);
+
+        ShopRegistrationDeadEvent shopRegistrationDeadEvent = new ShopRegistrationDeadEvent(event.shopId(), reasonCode, reasonMessage);
         shopRegistrationDeadProducer.sendAndWait(shopRegistrationDeadEvent);
         ack.acknowledge();
 
@@ -36,11 +42,19 @@ public class ShopDLTConsumer {
             topics = "${kafka.topics.shop-deletion-requested}.dlt",
             containerFactory = "dltKafkaListenerContainerFactory"
     )
-    public void consume(ShopDeletionRequestedEvent event, Acknowledgment ack) {
+    public void consume(ShopDeletionRequestedEvent event, Acknowledgment ack, ConsumerRecord<String, ShopDeletionRequestedEvent> record) {
 
-        ShopDeletionDeadEvent shopDeletionDeadEvent = new ShopDeletionDeadEvent(event.shopId());
+        String reasonCode  = "DLT_EXHAUSTED";
+        String reasonMessage = header(record, KafkaHeaders.DLT_EXCEPTION_MESSAGE);
+
+        ShopDeletionDeadEvent shopDeletionDeadEvent = new ShopDeletionDeadEvent(event.shopId(), reasonCode, reasonMessage);
         shopDeletionDeadProducer.sendAndWait(shopDeletionDeadEvent);
         ack.acknowledge();
 
+    }
+
+    private String header(ConsumerRecord<?, ?> record, String key) {
+        Header h = record.headers().lastHeader(key);
+        return h == null ? null : new String(h.value(), java.nio.charset.StandardCharsets.UTF_8);
     }
 }
