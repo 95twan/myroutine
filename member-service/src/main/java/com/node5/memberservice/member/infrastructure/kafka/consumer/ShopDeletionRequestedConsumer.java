@@ -30,7 +30,7 @@ public class ShopDeletionRequestedConsumer {
             memberService.deleteMemberRole(event.memberId(), event.shopId(), new RoleModifyCommand(MemberRole.SELLER));
             ack.acknowledge();
         } catch (MemberException e) {
-            ShopDeletionFailedEvent shopDeletionFailedEvent = new ShopDeletionFailedEvent(event.shopId());
+            ShopDeletionFailedEvent shopDeletionFailedEvent = new ShopDeletionFailedEvent(event.shopId(), e.getErrorCode().getCode(), e.getErrorCode().getMessage());
             shopDeletionFailedProducer.sendAndWait(shopDeletionFailedEvent);
             ack.acknowledge();
         }

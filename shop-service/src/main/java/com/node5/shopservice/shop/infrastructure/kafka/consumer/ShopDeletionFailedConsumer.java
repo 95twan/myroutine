@@ -20,7 +20,7 @@ public class ShopDeletionFailedConsumer {
             containerFactory = "retryKafkaListenerContainerFactory"
     )
     public void consume(ShopDeletionFailedEvent event, Acknowledgment ack) {
-        shopService.deleteShopFailed(event.shopId());
+        shopService.deleteShopFailed(event);
         ack.acknowledge();
     }
 }

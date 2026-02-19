@@ -13,28 +13,17 @@ import java.util.UUID;
 
 public interface ShopJpaRepository extends JpaRepository<Shop, UUID> {
     List<Shop> findAllByMemberIdAndDeletedAtIsNull(UUID memberId);
-    int countByMemberIdAndDeletedAtIsNull(UUID memberId);
-
-    Optional<Shop> findByIdAndMemberIdAndDeletedAtIsNull(UUID shopId, UUID memberId);
+    int countByMemberIdAndDeletedAtIsNullAndIdNot(UUID memberId, UUID shopId);
 
     @Query("""
             select s
             from Shop s
             join fetch s.registration sr
+            left join fetch s.deletion sd
             where s.memberId = :memberId
               and s.deletedAt is null
             """)
-    Page<Shop> findAllWithRegistration(UUID memberId, Pageable pageable);
-
-    @Query("""
-                select s
-                from Shop s
-                join fetch s.registration sr
-                where s.id = :shopId
-                  and s.memberId = :memberId
-                  and s.deletedAt is null
-            """)
-    Optional<Shop> findByIdWithRegistration(UUID shopId, UUID memberId);
+    Page<Shop> findAllWithStatusAndDeletedAtIsNull(UUID memberId, Pageable pageable);
 
     @Query("""
                 select s
@@ -43,8 +32,9 @@ public interface ShopJpaRepository extends JpaRepository<Shop, UUID> {
                 left join fetch s.deletion sd
                 where s.id = :shopId
                   and s.memberId = :memberId
+                  and s.deletedAt is null
             """)
-    Optional<Shop> findByIdWithRegistrationAndDeletion(UUID shopId, UUID memberId);
+    Optional<Shop> findByIdWithStatusAndDeletedAtIsNull(UUID shopId, UUID memberId);
 
     @Query("""
                 select s
@@ -54,5 +44,5 @@ public interface ShopJpaRepository extends JpaRepository<Shop, UUID> {
                     and sr.status = :status
                     and s.deletedAt is null
             """)
-    Optional<Shop> findByIdAndStatusIsCompleted(UUID shopId, ShopRegistrationStatus status);
+    Optional<Shop> findByIdAndRegistrationStatusIs(UUID shopId, ShopRegistrationStatus status);
 }

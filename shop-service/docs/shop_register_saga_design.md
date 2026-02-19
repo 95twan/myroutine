@@ -151,13 +151,13 @@
 1. 1~5 동일
 2. 역할 추가가 비즈니스 규칙으로 실패
 3. `member-service` → Kafka : `ShopRegistrationFailedEvent`
-4. `shop-service` : ShopRegistration 상태 `FAILED` 전이
+4. `shop-service` : ShopRegistration 상태 `FAILED` 전이 + 실패 사유 저장
 
 #### 최종 실패 흐름 (DEAD)
 1. 인프라 장애로 처리/발행 실패가 반복됨
 2. `member-service` : Kafka 재시도 소진 후 DLT 격리
 3. `member-service` : `ShopRegistrationDeadEvent` 발행
-4. `shop-service` : ShopRegistration 상태 `DEAD` 전이
+4. `shop-service` : ShopRegistration 상태 `DEAD` 전이 + 실패 사유 저장
 
 ---
 
@@ -186,12 +186,12 @@ sequenceDiagram
     else role 추가 비즈니스 실패
         M->>K: ShopRegistrationFailedEvent
         S->>K: consume ShopRegistrationFailedEvent
-        S->>S: ShopRegistration 상태 FAILED 전이
+        S->>S: ShopRegistration 상태 FAILED 전이 + reason 저장
     else 인프라 실패 반복 후 재시도 소진
         M->>K: DLT 처리
         M->>K: ShopRegistrationDeadEvent
         S->>K: consume ShopRegistrationDeadEvent
-        S->>S: ShopRegistration 상태 DEAD 전이
+        S->>S: ShopRegistration 상태 DEAD 전이 + reason 저장
     end
 ```
 

@@ -3,6 +3,8 @@ package com.node5.common.event;
 import java.util.UUID;
 
 public record ShopDeletionDeadEvent(
-        UUID shopId
+        UUID shopId,
+        String reasonCode,
+        String reasonMessage
 ) {
 }

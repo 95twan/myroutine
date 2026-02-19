@@ -30,7 +30,7 @@ public class ShopRegistrationRequestedConsumer {
             memberService.addMemberRole(event.memberId(), event.shopId(), new RoleModifyCommand(MemberRole.SELLER));
             ack.acknowledge();
         } catch (MemberException e) {
-            ShopRegistrationFailedEvent shopRegistrationFailedEvent = new ShopRegistrationFailedEvent(event.shopId());
+            ShopRegistrationFailedEvent shopRegistrationFailedEvent = new ShopRegistrationFailedEvent(event.shopId(), e.getErrorCode().getCode(), e.getErrorCode().getMessage());
             shopRegistrationFailedProducer.sendAndWait(shopRegistrationFailedEvent);
             ack.acknowledge();
         }

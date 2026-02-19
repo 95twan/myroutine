@@ -27,6 +27,12 @@ public class ShopDeletion extends BaseEntity {
     @Column(name = "shop_deletion_status")
     private ShopDeletionStatus status;
 
+    @Column(name = "failure_reason_code", length = 20)
+    private String failureReasonCode;
+
+    @Column(name = "failure_reason_message", length = 100)
+    private String failureReasonMessage;
+
     private ShopDeletion(
             Shop shop,
             ShopDeletionStatus status
@@ -47,15 +53,19 @@ public class ShopDeletion extends BaseEntity {
         return false;
     }
 
-    public void shopDeletionFailed() {
+    public void shopDeletionFailed(String failureReasonCode, String failureReasonMessage) {
         if (status == ShopDeletionStatus.REQUESTED) {
             this.status = ShopDeletionStatus.FAILED;
+            this.failureReasonCode = failureReasonCode;
+            this.failureReasonMessage = failureReasonMessage;
         }
     }
 
-    public void shopDeletionDead() {
+    public void shopDeletionDead(String failureReasonCode, String failureReasonMessage) {
         if (status == ShopDeletionStatus.REQUESTED) {
             this.status = ShopDeletionStatus.DEAD;
+            this.failureReasonCode = failureReasonCode;
+            this.failureReasonMessage = failureReasonMessage;
         }
     }
 }

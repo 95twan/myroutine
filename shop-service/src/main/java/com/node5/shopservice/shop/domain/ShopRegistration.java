@@ -27,6 +27,12 @@ public class ShopRegistration extends BaseEntity {
     @Column(name = "shop_registration_status")
     private ShopRegistrationStatus status;
 
+    @Column(name = "failure_reason_code", length = 20)
+    private String failureReasonCode;
+
+    @Column(name = "failure_reason_message", length = 100)
+    private String failureReasonMessage;
+
     private ShopRegistration(
             Shop shop,
             ShopRegistrationStatus status
@@ -45,15 +51,19 @@ public class ShopRegistration extends BaseEntity {
         }
     }
 
-    public void shopRegistrationFailed() {
+    public void shopRegistrationFailed(String failureReasonCode, String failureReasonMessage) {
         if (status == ShopRegistrationStatus.REQUESTED) {
             this.status = ShopRegistrationStatus.FAILED;
+            this.failureReasonCode = failureReasonCode;
+            this.failureReasonMessage = failureReasonMessage;
         }
     }
 
-    public void shopRegistrationDead() {
+    public void shopRegistrationDead(String failureReasonCode, String failureReasonMessage) {
         if (status == ShopRegistrationStatus.REQUESTED) {
             this.status = ShopRegistrationStatus.DEAD;
+            this.failureReasonCode = failureReasonCode;
+            this.failureReasonMessage = failureReasonMessage;
         }
     }
 }
