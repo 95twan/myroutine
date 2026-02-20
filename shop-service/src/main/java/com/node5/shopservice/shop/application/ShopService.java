@@ -1,5 +1,7 @@
 package com.node5.shopservice.shop.application;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.node5.common.event.*;
 import com.node5.shopservice.client.WalletClient;
 import com.node5.shopservice.shop.application.dto.ShopInfoResponse;
@@ -30,8 +32,10 @@ public class ShopService {
     private final ShopRepository shopRepository;
     private final ShopRegistrationRepository shopRegistrationRepository;
     private final ShopDeletionRepository shopDeletionRepository;
+    private final ShopOutboxRepository shopOutboxRepository;
     private final WalletClient walletClient;
     private final ApplicationEventPublisher eventPublisher;
+    private final ObjectMapper objectMapper;
 
     public Page<ShopListResponse> findMyShopList(UUID memberId, Pageable pageable) {
         return shopRepository.findAllWithStatusAndDeletedAtIsNull(memberId, pageable).map(ShopListResponse::from);
@@ -51,7 +55,16 @@ public class ShopService {
         shopRegistrationRepository.save(ShopRegistration.create(shop));
 
         ShopRegistrationRequestedEvent shopRegistrationRequestedEvent = new ShopRegistrationRequestedEvent(shop.getId(), memberId);
-        eventPublisher.publishEvent(shopRegistrationRequestedEvent);
+
+        String payload;
+        try {
+            payload = objectMapper.writeValueAsString(shopRegistrationRequestedEvent);
+        } catch (JsonProcessingException e) {
+            throw new ShopException(ShopErrorCode.JSON_PROCESSING_EXCEPTION);
+        }
+
+        ShopOutbox shopOutbox = ShopOutbox.create("ShopRegistrationRequestedEvent", shop.getId(), payload);
+        shopOutboxRepository.save(shopOutbox);
     }
 
     private void checkWalletExists(UUID memberId) {
@@ -101,15 +114,22 @@ public class ShopService {
             throw new ShopException(ShopErrorCode.SHOP_DELETE_NOT_ALLOWED);
         }
 
-        int shopCount = shopRepository.countByMemberIdAndDeletedAtIsNullAndIdNot(memberId, shop.getId());
-
         shopDeletionRepository.save(ShopDeletion.create(shop, ShopDeletionStatus.REQUESTED));
 
+        int shopCount = shopRepository.countByMemberIdAndDeletedAtIsNullAndIdNot(memberId, shop.getId());
         if (shopCount != 0) {
             deleteShopCompleted(shop.getId());
         } else {
             ShopDeletionRequestedEvent shopDeletionRequestedEvent = new ShopDeletionRequestedEvent(shop.getId(), memberId);
-            eventPublisher.publishEvent(shopDeletionRequestedEvent);
+            String payload;
+            try {
+                payload = objectMapper.writeValueAsString(shopDeletionRequestedEvent);
+            } catch (JsonProcessingException e) {
+                throw new ShopException(ShopErrorCode.JSON_PROCESSING_EXCEPTION);
+            }
+
+            ShopOutbox shopOutbox = ShopOutbox.create("ShopDeletionRequestedEvent", shop.getId(), payload);
+            shopOutboxRepository.save(shopOutbox);
         }
     }
 
@@ -166,12 +186,12 @@ public class ShopService {
                 () -> new ShopException(ShopErrorCode.SHOP_DELETION_NOT_FOUND)
         );
 
-        if(shopDeletion.shopDeletionCompleted()) {
-            Shop shop = shopDeletion.getShop();
-            shop.delete();
-            ShopDeletedEvent shopDeletedEvent = new ShopDeletedEvent(shopId);
-            eventPublisher.publishEvent(shopDeletedEvent);
-        }
+        if (!shopDeletion.shopDeletionCompleted()) {return;}
+
+        Shop shop = shopDeletion.getShop();
+        shop.delete();
+        ShopDeletedEvent shopDeletedEvent = new ShopDeletedEvent(shopId);
+        eventPublisher.publishEvent(shopDeletedEvent);
     }
 
     @Transactional

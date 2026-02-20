@@ -18,7 +18,7 @@ CREATE TABLE shop."shop_registration"(
     shop_id         uuid NOT NULL,
     shop_registration_status varchar(20) NOT NULL,
     failure_reason_code varchar(20) NULL,
-    failure_reason_message varchar(100) NULL,
+    failure_reason_message varchar(1000) NULL,
     created_at timestamp NOT NULL,
     modified_at timestamp NOT NULL,
     CONSTRAINT shop_registration_pkey PRIMARY KEY (shop_id)
@@ -28,12 +28,24 @@ CREATE TABLE shop."shop_deletion"(
     shop_id         uuid NOT NULL,
     shop_deletion_status varchar(20) NOT NULL,
     failure_reason_code varchar(20) NULL,
-    failure_reason_message varchar(100) NULL,
+    failure_reason_message varchar(1000) NULL,
     created_at timestamp NOT NULL,
     modified_at timestamp NOT NULL,
     CONSTRAINT shop_deletion_pkey PRIMARY KEY (shop_id)
 );
 
+CREATE  TABLE shop."shop_outbox"(
+    id uuid NOT NULL,
+    event_type varchar(100) NOT NULL,
+    event_key uuid NOT NULL,
+    payload text NOT NULL,
+    status varchar(20) NOT NULL,
+    retry_count int NOT NULL DEFAULT 0,
+    created_at timestamp NOT NULL,
+    CONSTRAINT shop_outbox_pkey PRIMARY KEY (id)
+);
+
+CREATE INDEX idx_shop_outbox_status_created_at ON shop."shop_outbox" (status, created_at);
 
 CREATE TABLE shop."settlement_source" (
 	item_amount numeric(38, 2) NOT NULL,
