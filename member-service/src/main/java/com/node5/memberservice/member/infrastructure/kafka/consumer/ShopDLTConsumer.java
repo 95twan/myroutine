@@ -15,6 +15,8 @@ import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.stereotype.Component;
 
+import java.nio.charset.StandardCharsets;
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -55,6 +57,6 @@ public class ShopDLTConsumer {
 
     private String header(ConsumerRecord<?, ?> record, String key) {
         Header h = record.headers().lastHeader(key);
-        return h == null ? null : new String(h.value(), java.nio.charset.StandardCharsets.UTF_8);
+        return h == null ? null : new String(h.value(), StandardCharsets.UTF_8);
     }
 }
