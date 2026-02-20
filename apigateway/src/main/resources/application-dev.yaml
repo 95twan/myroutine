@@ -1,9 +1,7 @@
 spring:
   config:
-    import: optional:file:/config/application.yml
+    import: optional:configserver:http://config-service:8888
   cloud:
-    config:
-      enabled: false
     gateway:
       server:
         webflux:
@@ -17,7 +15,7 @@ spring:
             - id: member-service
               uri: lb://MEMBER-SERVICE
               predicates:
-                - Path=/member-service/api/v1/**, /member-service/v3/api-docs/**
+                - Path=/member-service/**
               filters:
                 - RewritePath=/member-service/(?<segment>.*), /$\{segment}
             - id: shop-service
