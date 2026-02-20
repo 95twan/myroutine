@@ -109,3 +109,15 @@ CREATE TABLE member."settlement_result" (
 	CONSTRAINT settlement_result_status_check CHECK (((status)::text = ANY ((ARRAY['PENDING'::character varying, 'PAID'::character varying, 'FAILED'::character varying])::text[])))
 );
 
+CREATE  TABLE member."member_outbox"(
+    id uuid NOT NULL,
+    event_type varchar(100) NOT NULL,
+    event_key uuid NOT NULL,
+    payload text NOT NULL,
+    status varchar(20) NOT NULL,
+    retry_count int NOT NULL DEFAULT 0,
+    created_at timestamp NOT NULL,
+    CONSTRAINT member_outbox_pkey PRIMARY KEY (id)
+);
+
+CREATE INDEX idx_member_outbox_status_created_at ON member."member_outbox" (status, created_at);
