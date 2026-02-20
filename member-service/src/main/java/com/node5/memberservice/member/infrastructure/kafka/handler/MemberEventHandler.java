@@ -23,13 +23,4 @@ public class MemberEventHandler {
         memberDeletedProducer.send(event);
     }
 
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    public void handle(ShopRegistrationCompletedEvent event) {
-        shopRegistrationCompletedProducer.send(event);
-    }
-
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    public void handle(ShopDeletionCompletedEvent event) {
-        shopDeletionCompletedProducer.send(event);
-    }
 }

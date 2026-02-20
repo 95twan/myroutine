@@ -213,15 +213,15 @@ sequenceDiagram
 
 상황:
 
-- `shop-service`는 DB 커밋 이후 `AFTER_COMMIT` 이벤트 발행 구조를 사용하고 있어, 발행 실패 시 이벤트 유실 가능성이 있었다.
+- 트랜잭션 커밋 이후 이벤트를 직접 발행하는 구조에서는 발행 실패 시 이벤트 유실 가능성이 있었다.
 
 적용:
 
-- `ShopDeletionRequestedEvent`를 Outbox에 저장하도록 변경했다.
-- `deleteMyShop` 트랜잭션 안에서 도메인 저장과 Outbox 저장을 함께 처리해 원자성을 확보했다.
+- Saga 요청/완료 이벤트를 Outbox에 저장하도록 변경했다.
+- 도메인 상태 변경 트랜잭션 안에서 도메인 저장과 Outbox 저장을 함께 처리해 원자성을 확보했다.
 - Outbox 스케줄러를 별도 구성하고, `TaskScheduler` 기반 동적 백오프로 발행 주기를 조절한다.
 - Outbox 상태를 `READY -> PROCESSING -> SENT/FAILED`로 운용한다.
-- 배치 조회 시 `PESSIMISTIC_WRITE + SKIP LOCKED`로 동일 레코드 중복 점유를 줄였다.
+- 배치 조회 시 `PESSIMISTIC_WRITE + SKIP LOCKED`를 사용해 동일 레코드 중복 점유를 줄였다.
 - 발행 실패 시 `retry_count`를 증가시키고 임계치 미만이면 `READY`로 복귀, 임계치 이상이면 `FAILED`로 격리한다.
 - Kafka 발행은 `send().get(timeout)`으로 동기 확인해 실패를 즉시 감지하도록 변경했다.
 
@@ -230,6 +230,9 @@ sequenceDiagram
 - Saga 시작 이벤트 유실 가능성을 낮췄다.
 - 다중 인스턴스 실행에서도 Outbox 점유 충돌 가능성을 줄였다.
 - 장애 시 자동 재시도와 격리(`FAILED`) 경로가 명확해졌다.
+- 유휴 구간에서는 동적 백오프로 최대 30초 간격 조회를 수행해 분당 약 2회 수준의 폴링 부하로 제한된다.
+- 조회는 `status, created_at` 인덱스 기반 `READY` 조건 조회 + 배치 제한(`LIMIT`)으로 처리 비용 상한을 유지한다.
+- 이벤트가 없을 때는 Kafka 발행 I/O가 발생하지 않아 유휴 시 부하는 대부분 짧은 DB 조회 비용으로 수렴한다.
 
 ---
 
@@ -238,6 +241,10 @@ sequenceDiagram
 - Outbox 운영 고도화
   - Outbox 상태별(`READY`/`PROCESSING`/`FAILED`) 건수 모니터링과 알림 기준을 운영 지표로 관리
   - `FAILED` 누적 증가 시 알람과 수동 재처리(runbook) 연계를 명확히 유지
+- `FAILED`/`DEAD` 이벤트 Outbox 확장 여부
+  - 현재는 Saga 핵심 경로(요청/완료 이벤트) 중심으로 Outbox를 적용
+  - 실패/종결 이벤트까지 Outbox를 확장하면 유실 가능성을 더 낮출 수 있으나 운영 복잡도도 함께 증가
+  - 장애 빈도/운영 요구 수준에 따라 단계적으로 확장 여부를 결정
 - Outbox `PROCESSING` 장기 체류 복구 정책
   - 워커 중단/장애 시 `PROCESSING` 상태가 장시간 유지될 수 있음
   - 일정 임계 시간(예: 5~10분) 초과 `PROCESSING` 레코드를 `READY`로 되돌리는 복구 배치가 필요

@@ -1,5 +1,7 @@
 package com.node5.memberservice.member.application;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.node5.common.event.MemberDeletedEvent;
 import com.node5.common.event.ShopDeletionCompletedEvent;
 import com.node5.common.event.ShopRegistrationCompletedEvent;
@@ -31,6 +33,7 @@ import java.util.UUID;
 public class MemberService {
 
     private final MemberRepository memberRepository;
+    private final MemberOutboxRepository memberOutboxRepository;
     private final OAuthRepository oAuthRepository;
     private final RoleRepository roleRepository;
     private final RedisService redisService;
@@ -38,6 +41,7 @@ public class MemberService {
     private final ShopClient shopClient;
     private final WalletClient walletClient;
     private final OrderClient orderClient;
+    private final ObjectMapper objectMapper;
 
     public MemberInfoResponse findById(UUID memberId) {
         Member member = getNotDeletedMemberOrThrow(memberId);
@@ -116,7 +120,16 @@ public class MemberService {
         member.addRole(command.role());
 
         ShopRegistrationCompletedEvent event = new ShopRegistrationCompletedEvent(shopId);
-        eventPublisher.publishEvent(event);
+
+        String payload;
+        try {
+            payload = objectMapper.writeValueAsString(event);
+        } catch (JsonProcessingException e) {
+            throw new MemberException(MemberErrorCode.JSON_PROCESSING_EXCEPTION);
+        }
+
+        MemberOutbox memberOutbox = MemberOutbox.create("ShopRegistrationCompletedEvent", shopId, payload);
+        memberOutboxRepository.save(memberOutbox);
     }
 
     @Transactional
@@ -125,7 +138,16 @@ public class MemberService {
         member.deleteRole(command.role());
 
         ShopDeletionCompletedEvent event = new ShopDeletionCompletedEvent(shopId);
-        eventPublisher.publishEvent(event);
+
+        String payload;
+        try {
+            payload = objectMapper.writeValueAsString(event);
+        } catch (JsonProcessingException e) {
+            throw new MemberException(MemberErrorCode.JSON_PROCESSING_EXCEPTION);
+        }
+
+        MemberOutbox memberOutbox = MemberOutbox.create("ShopDeletionCompletedEvent", shopId, payload);
+        memberOutboxRepository.save(memberOutbox);
     }
 
     private Member getNotDeletedMemberOrThrow(UUID memberId) {

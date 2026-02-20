@@ -21,7 +21,9 @@ public enum MemberErrorCode implements BaseErrorCode {
 
     INVALID_MEMBER_ID(HttpStatus.BAD_REQUEST.value(), "MEMBER_012", "잘못된 memberId 형식입니다."),
     MEMBER_HAS_ORDER(HttpStatus.BAD_REQUEST.value(), "MEMBER_013", "진행 중인 주문이 있습니다. 주문 완료 후 탈퇴해 주세요."),
-    MEMBER_HAS_SETTLEMENT(HttpStatus.BAD_REQUEST.value(), "MEMBER_014", "남아 있는 정산이 있습니다. 정산 후 탈퇴해 주세요.");
+    MEMBER_HAS_SETTLEMENT(HttpStatus.BAD_REQUEST.value(), "MEMBER_014", "남아 있는 정산이 있습니다. 정산 후 탈퇴해 주세요."),
+    JSON_PROCESSING_EXCEPTION(HttpStatus.INTERNAL_SERVER_ERROR.value(), "MEMBER_015", "json processing 에러"),
+    KAFKA_EVENT_SEND_FAIL(HttpStatus.INTERNAL_SERVER_ERROR.value(), "MEMBER_016" , "kafka 메시지 전송 실패");
 
     private final int status;
     private final String code;
