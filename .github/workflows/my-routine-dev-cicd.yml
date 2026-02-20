@@ -162,7 +162,7 @@ jobs:
             cd "${{ secrets.DEPLOY_PATH }}"
             echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
             docker compose -f docker-compose-infra.yaml pull
-            docker compose -f docker-compose-infra.yaml up -d --remove-orphans
+            docker compose -f docker-compose-infra.yaml up -d --remove-orphans --wait --wait-timeout 300
             docker compose -f docker-compose.yaml pull
             docker compose -f docker-compose.yaml up -d --remove-orphans
             docker image prune -f
