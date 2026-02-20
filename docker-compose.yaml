@@ -1,0 +1,104 @@
+services:
+  config-service:
+    image: 95twan/config:latest
+    ports:
+      - "8888:8888"
+    volumes:
+      - /home/ubuntu/config:/app/config
+    healthcheck: # Healthcheck 추가
+      test: [ "CMD", "curl", "-f", "http://localhost:8888/actuator/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  discovery-service:
+    image: 95twan/discovery:latest
+    ports:
+      - "8761:8761"
+    depends_on:
+      config-service:
+        condition: service_healthy
+    healthcheck: # Healthcheck 추가
+      test: [ "CMD", "curl", "-f", "http://localhost:8761/actuator/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  apigateway-service:
+    image: 95twan/apigateway-service-dev:latest
+    ports:
+      - "8000:8000"
+    depends_on:
+      discovery-service:
+        condition: service_healthy
+
+  member-service:
+    image: 95twan/member-service-dev:latest
+    ports:
+      - "8081:8081"
+    depends_on:
+      discovery-service:
+        condition: service_healthy
+    env_file:
+      - /home/ubuntu/env/.env.member
+
+  catalog-service:
+    image: 95twan/catalog-service-dev:latest
+    ports:
+      - "8082:8082"
+    depends_on:
+      discovery-service:
+        condition: service_healthy
+    env_file:
+      - /home/ubuntu/env/.env.catalog
+
+  order-service:
+    image: 95twan/order-service-dev:latest
+    ports:
+      - "8083:8083"
+    depends_on:
+      discovery-service:
+        condition: service_healthy
+    env_file:
+      - /home/ubuntu/env/.env.order
+
+  payment-service:
+    image: 95twan/payment-service-dev:latest
+    ports:
+      - "8088:8088"
+    depends_on:
+      discovery-service:
+        condition: service_healthy
+    env_file:
+      - /home/ubuntu/env/.env.payment
+
+  shop-service:
+    image: 95twan/shop-service-dev:latest
+    ports:
+      - "8085:8085"
+    depends_on:
+      discovery-service:
+        condition: service_healthy
+    env_file:
+      - /home/ubuntu/env/.env.shop
+
+  support-service:
+    image: 95twan/support-service-dev:latest
+    ports:
+      - "8087:8087"
+    depends_on:
+      discovery-service:
+        condition: service_healthy
+    env_file:
+      - /home/ubuntu/env/.env.support
+
+  wallet-service:
+    image: 95twan/wallet-service-dev:latest
+    ports:
+      - "8084:8084"
+    depends_on:
+      discovery-service:
+        condition: service_healthy
+    env_file:
+      - /home/ubuntu/env/.env.wallet
+
