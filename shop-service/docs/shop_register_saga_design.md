@@ -115,6 +115,7 @@
 - `shop-service`는 등록을 우선 커밋하고 권한 등록은 비동기 오케스트레이션
 - `member-service`가 멱등하게 역할 부여 수행(이미 SELLER면 no-op)
 - 성공/실패 이벤트에 따라 `shop-service`가 상태 전이
+- 권한 변경 관련 이벤트는 토픽을 분리하되, 각 이벤트 타입에서 `memberId` key 기반 순서를 유지
 
 ---
 
@@ -124,10 +125,20 @@
 - ShopRegistration 상태: `REQUESTED → COMPLETED / FAILED / DEAD`
 
 #### B. 이벤트 정의
-- `ShopRegistrationRequestedEvent`
-- `ShopRegistrationCompletedEvent`
-- `ShopRegistrationFailedEvent`
-- `ShopRegistrationDeadEvent`
+- `MemberRoleChangeRequestedEvent`
+- `MemberRoleChangeCompletedEvent`
+- `MemberRoleChangeFailedEvent`
+- `MemberRoleChangeDeadEvent`
+
+공통 페이로드:
+
+- `memberId`, `shopId`, `action(ADD_SELLER | REMOVE_SELLER)`, `sagaType(SHOP_REGISTRATION | SHOP_DELETION)`, `eventId`, `occurredAt`
+
+토픽/키 전략:
+
+- 권한 변경 관련 Saga 이벤트는 `requested/completed/failed/dead` 토픽으로 분리한다.
+- 각 토픽의 Kafka 메시지 key는 `memberId`로 고정해 멤버 단위 순서를 유지한다.
+- 요청/결과 이벤트의 인과관계를 기준으로 상태 전이를 처리한다.
 
 #### C. 멱등 역할 부여 위임
 - `member-service`가 멱등하게 SELLER 권한 부여 처리
@@ -141,22 +152,22 @@
 1. Client → `shop-service` : 1registerShop1
 2. `shop-service` → `wallet-service` : Wallet 확인
 3. `shop-service` : Shop 저장 + ShopRegistration(`REQUESTED`)
-4. `shop-service` → Kafka : `ShopRegistrationRequestedEvent`
+4. `shop-service` → Kafka : `MemberRoleChangeRequestedEvent(action=ADD_SELLER, sagaType=SHOP_REGISTRATION)`
 5. `member-service` : SELLER 권한 부여 시도(이미 SELLER면 no-op)
 6. 역할 부여 완료
-7. `member-service` → Kafka : `ShopRegistrationCompletedEvent`
+7. `member-service` → Kafka : `MemberRoleChangeCompletedEvent(action=ADD_SELLER, sagaType=SHOP_REGISTRATION)`
 8. `shop-service` : ShopRegistration 상태 `COMPLETED` 전이
 
 #### 실패 흐름
 1. 1~5 동일
 2. 역할 추가가 비즈니스 규칙으로 실패
-3. `member-service` → Kafka : `ShopRegistrationFailedEvent`
+3. `member-service` → Kafka : `MemberRoleChangeFailedEvent(action=ADD_SELLER, sagaType=SHOP_REGISTRATION)`
 4. `shop-service` : ShopRegistration 상태 `FAILED` 전이 + 실패 사유 저장
 
 #### 최종 실패 흐름 (DEAD)
 1. 인프라 장애로 처리/발행 실패가 반복됨
 2. `member-service` : Kafka 재시도 소진 후 DLT 격리
-3. `member-service` : `ShopRegistrationDeadEvent` 발행
+3. `member-service` : `MemberRoleChangeDeadEvent(action=ADD_SELLER, sagaType=SHOP_REGISTRATION)` 발행
 4. `shop-service` : ShopRegistration 상태 `DEAD` 전이 + 실패 사유 저장
 
 ---
@@ -176,21 +187,21 @@ sequenceDiagram
     S->>W: getWallet
     W-->>S: wallet OK
     S->>S: Shop 저장 + ShopRegistration(REQUESTED)
-    S->>K: ShopRegistrationRequestedEvent
-    M->>K: consume ShopRegistrationRequestedEvent
+    S->>K: MemberRoleChangeRequestedEvent(ADD_SELLER, SHOP_REGISTRATION)
+    M->>K: consume MemberRoleChangeRequestedEvent
     M->>M: addMemberRole(SELLER) (멱등)
     alt role 추가 성공
-        M->>K: ShopRegistrationCompletedEvent
-        S->>K: consume ShopRegistrationCompletedEvent
+        M->>K: MemberRoleChangeCompletedEvent(ADD_SELLER, SHOP_REGISTRATION)
+        S->>K: consume MemberRoleChangeCompletedEvent
         S->>S: ShopRegistration 상태 COMPLETED 전이
     else role 추가 비즈니스 실패
-        M->>K: ShopRegistrationFailedEvent
-        S->>K: consume ShopRegistrationFailedEvent
+        M->>K: MemberRoleChangeFailedEvent(ADD_SELLER, SHOP_REGISTRATION)
+        S->>K: consume MemberRoleChangeFailedEvent
         S->>S: ShopRegistration 상태 FAILED 전이 + reason 저장
     else 인프라 실패 반복 후 재시도 소진
         M->>K: DLT 처리
-        M->>K: ShopRegistrationDeadEvent
-        S->>K: consume ShopRegistrationDeadEvent
+        M->>K: MemberRoleChangeDeadEvent(ADD_SELLER, SHOP_REGISTRATION)
+        S->>K: consume MemberRoleChangeDeadEvent
         S->>S: ShopRegistration 상태 DEAD 전이 + reason 저장
     end
 ```
@@ -246,7 +257,28 @@ sequenceDiagram
 
 ---
 
-## 7. 추가 고려 사항
+## 7. 서비스 간 처리 안정화 (토픽 분리 + Kafka key = memberId)
+
+상황:
+
+- `shop-service` 내부 정합성이 확보되어도 Saga 비동기 구간에서는 이벤트 처리 순서 역전 가능성이 남아 있었다.
+- 특히 등록/삭제 관련 권한 변경 이벤트가 교차될 때, 처리 순서가 바뀌면 최종 권한 상태가 흔들릴 수 있다.
+
+적용:
+
+- 권한 변경 관련 Saga 이벤트는 `requested/completed/failed/dead` 토픽으로 분리한다.
+- 각 토픽에서 Kafka 메시지 key를 `memberId`로 고정해 멤버 단위 순서를 유지한다.
+- `member-service` 권한 변경 로직은 멱등(no-op 안전)으로 유지한다.
+
+결과:
+
+- 요청/결과 이벤트의 역할이 분리되어 컨슈머 책임과 운영 구분이 명확해진다.
+- 인스턴스 스케일 아웃 환경에서도 멤버 단위 순서 보장 특성을 유지할 수 있다.
+- 서비스 간 권한 상태 역전 가능성을 운영 가능한 수준으로 낮출 수 있다.
+
+---
+
+## 8. 추가 고려 사항
 
 - Outbox 운영 고도화
   - Outbox 상태별(`READY`/`PROCESSING`/`FAILED`) 건수 모니터링과 알림 기준을 운영 지표로 관리
@@ -272,3 +304,9 @@ sequenceDiagram
 - 운영 관측성
   - `shopId`, `memberId`, `eventId`, `status` 기반 추적
   - `REQUESTED`/`FAILED` 장기 체류 알림
+- 수정/삭제 경쟁
+  - `modifyMyShopInfo`와 등록/삭제 요청이 교차되면 상태 확인 시점과 반영 시점 사이 레이스가 생길 수 있음
+  - 필요 시 수정 경로에도 동일한 `memberId` 락 정책을 적용해 일관된 직렬화 범위를 유지
+- 회원탈퇴 일괄 삭제 경쟁
+  - `deleteAllMyShop`(회원탈퇴 경로)와 일반 등록/삭제 요청이 교차될 가능성을 운영 정책으로 통제해야 함
+  - 필요 시 `deleteAllMyShop`에도 동일한 `memberId` 락 정책을 적용해 충돌을 최소화

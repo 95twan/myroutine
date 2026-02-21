@@ -2,9 +2,7 @@ package com.node5.memberservice.member.application;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.node5.common.event.MemberDeletedEvent;
-import com.node5.common.event.ShopDeletionCompletedEvent;
-import com.node5.common.event.ShopRegistrationCompletedEvent;
+import com.node5.common.event.*;
 import com.node5.memberservice.auth.domain.OAuthRepository;
 import com.node5.memberservice.client.OrderClient;
 import com.node5.memberservice.client.ShopClient;
@@ -115,38 +113,46 @@ public class MemberService {
     }
 
     @Transactional
-    public void addMemberRole(UUID memberId, UUID shopId, RoleModifyCommand command) {
-        Member member = getNotDeletedMemberOrThrow(memberId);
+    public void addMemberRole(MemberRoleChangeRequestedEvent event, RoleModifyCommand command) {
+        Member member = getNotDeletedMemberOrThrow(event.memberId());
         member.addRole(command.role());
 
-        ShopRegistrationCompletedEvent event = new ShopRegistrationCompletedEvent(shopId);
+        MemberRoleChangeCompletedEvent memberRoleChangeCompletedEvent = new MemberRoleChangeCompletedEvent(
+                event.shopId(),
+                event.memberId(),
+                event.sagaType()
+        );
 
         String payload;
         try {
-            payload = objectMapper.writeValueAsString(event);
+            payload = objectMapper.writeValueAsString(memberRoleChangeCompletedEvent);
         } catch (JsonProcessingException e) {
             throw new MemberException(MemberErrorCode.JSON_PROCESSING_EXCEPTION);
         }
 
-        MemberOutbox memberOutbox = MemberOutbox.create("ShopRegistrationCompletedEvent", shopId, payload);
+        MemberOutbox memberOutbox = MemberOutbox.create("MemberRoleChangeCompletedEvent", event.memberId(), payload);
         memberOutboxRepository.save(memberOutbox);
     }
 
     @Transactional
-    public void deleteMemberRole(UUID memberId, UUID shopId, RoleModifyCommand command) {
-        Member member = getNotDeletedMemberOrThrow(memberId);
+    public void deleteMemberRole(MemberRoleChangeRequestedEvent event, RoleModifyCommand command) {
+        Member member = getNotDeletedMemberOrThrow(event.memberId());
         member.deleteRole(command.role());
 
-        ShopDeletionCompletedEvent event = new ShopDeletionCompletedEvent(shopId);
+        MemberRoleChangeCompletedEvent memberRoleChangeCompletedEvent = new MemberRoleChangeCompletedEvent(
+                event.shopId(),
+                event.memberId(),
+                event.sagaType()
+        );
 
         String payload;
         try {
-            payload = objectMapper.writeValueAsString(event);
+            payload = objectMapper.writeValueAsString(memberRoleChangeCompletedEvent);
         } catch (JsonProcessingException e) {
             throw new MemberException(MemberErrorCode.JSON_PROCESSING_EXCEPTION);
         }
 
-        MemberOutbox memberOutbox = MemberOutbox.create("ShopDeletionCompletedEvent", shopId, payload);
+        MemberOutbox memberOutbox = MemberOutbox.create("MemberRoleChangeCompletedEvent", event.memberId(), payload);
         memberOutboxRepository.save(memberOutbox);
     }
 

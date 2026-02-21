@@ -15,4 +15,6 @@ public interface ShopRepository {
     Optional<Shop> findByIdAndRegistrationStatusIs(UUID shopId, ShopRegistrationStatus status);
 
     int countByMemberIdAndDeletedAtIsNullAndIdNot(UUID memberId, UUID id);
+
+    void getTxLock(UUID memberId);
 }

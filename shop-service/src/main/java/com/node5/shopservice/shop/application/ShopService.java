@@ -49,21 +49,27 @@ public class ShopService {
 
     @Transactional
     public void registerShop(UUID memberId, ShopRegisterCommand command) {
+        shopRepository.getTxLock(memberId);
         checkWalletExists(memberId);
 
         Shop shop = shopRepository.save(Shop.create(memberId, command));
         shopRegistrationRepository.save(ShopRegistration.create(shop));
 
-        ShopRegistrationRequestedEvent shopRegistrationRequestedEvent = new ShopRegistrationRequestedEvent(shop.getId(), memberId);
+        MemberRoleChangeRequestedEvent memberRoleChangeRequestedEvent = new MemberRoleChangeRequestedEvent(
+                shop.getId(),
+                memberId,
+                MemberRoleChangeAction.ADD_SELLER,
+                MemberRoleChangeSagaType.SHOP_REGISTRATION
+        );
 
         String payload;
         try {
-            payload = objectMapper.writeValueAsString(shopRegistrationRequestedEvent);
+            payload = objectMapper.writeValueAsString(memberRoleChangeRequestedEvent);
         } catch (JsonProcessingException e) {
             throw new ShopException(ShopErrorCode.JSON_PROCESSING_EXCEPTION);
         }
 
-        ShopOutbox shopOutbox = ShopOutbox.create("ShopRegistrationRequestedEvent", shop.getId(), payload);
+        ShopOutbox shopOutbox = ShopOutbox.create("MemberRoleChangeRequestedEvent", memberId, payload);
         shopOutboxRepository.save(shopOutbox);
     }
 
@@ -80,6 +86,7 @@ public class ShopService {
 
     @Transactional
     public void modifyMyShopInfo(UUID memberId, UUID shopId, ShopModifyCommand command) {
+        shopRepository.getTxLock(memberId);
         Shop shop = shopRepository.findByIdWithStatusAndDeletedAtIsNull(shopId, memberId)
                 .orElseThrow(() -> new ShopException(ShopErrorCode.SHOP_NOT_FOUND));
 
@@ -96,6 +103,7 @@ public class ShopService {
 
     @Transactional
     public void deleteMyShop(UUID memberId, UUID shopId) {
+        shopRepository.getTxLock(memberId);
         Shop shop = shopRepository.findByIdWithStatusAndDeletedAtIsNull(shopId, memberId)
                 .orElseThrow(() -> new ShopException(ShopErrorCode.SHOP_NOT_FOUND));
 
@@ -120,15 +128,21 @@ public class ShopService {
         if (shopCount != 0) {
             deleteShopCompleted(shop.getId());
         } else {
-            ShopDeletionRequestedEvent shopDeletionRequestedEvent = new ShopDeletionRequestedEvent(shop.getId(), memberId);
+            MemberRoleChangeRequestedEvent memberRoleChangeRequestedEvent = new MemberRoleChangeRequestedEvent(
+                    shop.getId(),
+                    memberId,
+                    MemberRoleChangeAction.REMOVE_SELLER,
+                    MemberRoleChangeSagaType.SHOP_DELETION
+            );
+
             String payload;
             try {
-                payload = objectMapper.writeValueAsString(shopDeletionRequestedEvent);
+                payload = objectMapper.writeValueAsString(memberRoleChangeRequestedEvent);
             } catch (JsonProcessingException e) {
                 throw new ShopException(ShopErrorCode.JSON_PROCESSING_EXCEPTION);
             }
 
-            ShopOutbox shopOutbox = ShopOutbox.create("ShopDeletionRequestedEvent", shop.getId(), payload);
+            ShopOutbox shopOutbox = ShopOutbox.create("MemberRoleChangeRequestedEvent", memberId, payload);
             shopOutboxRepository.save(shopOutbox);
         }
     }
@@ -163,7 +177,7 @@ public class ShopService {
     }
 
     @Transactional
-    public void registerShopFailed(ShopRegistrationFailedEvent event) {
+    public void registerShopFailed(MemberRoleChangeFailedEvent event) {
         ShopRegistration shopRegistration = shopRegistrationRepository.findByShopId(event.shopId()).orElseThrow(
                 () -> new ShopException(ShopErrorCode.SHOP_REGISTRATION_NOT_FOUND)
         );
@@ -172,7 +186,7 @@ public class ShopService {
     }
 
     @Transactional
-    public void registerShopDead(ShopRegistrationDeadEvent event) {
+    public void registerShopDead(MemberRoleChangeDeadEvent event) {
         ShopRegistration shopRegistration = shopRegistrationRepository.findByShopId(event.shopId()).orElseThrow(
                 () -> new ShopException(ShopErrorCode.SHOP_REGISTRATION_NOT_FOUND)
         );
@@ -195,7 +209,7 @@ public class ShopService {
     }
 
     @Transactional
-    public void deleteShopFailed(ShopDeletionFailedEvent event) {
+    public void deleteShopFailed(MemberRoleChangeFailedEvent event) {
         ShopDeletion shopDeletion = shopDeletionRepository.findByShopId(event.shopId()).orElseThrow(
                 () -> new ShopException(ShopErrorCode.SHOP_DELETION_NOT_FOUND)
         );
@@ -204,7 +218,7 @@ public class ShopService {
     }
 
     @Transactional
-    public void deleteShopDead(ShopDeletionDeadEvent event) {
+    public void deleteShopDead(MemberRoleChangeDeadEvent event) {
         ShopDeletion shopDeletion = shopDeletionRepository.findByShopId(event.shopId()).orElseThrow(
                 () -> new ShopException(ShopErrorCode.SHOP_DELETION_NOT_FOUND)
         );

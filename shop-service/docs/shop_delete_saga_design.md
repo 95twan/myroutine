@@ -89,6 +89,7 @@
 - **Orchestrated Saga**
 - `shop-service`가 삭제를 우선 커밋하고, 권한 회수는 비동기 오케스트레이션
 - `ShopDeletedEvent`는 삭제 상태가 `COMPLETED`로 전이된 뒤 발행
+- 권한 변경 관련 이벤트는 토픽을 분리하되, 각 이벤트 타입에서 `memberId` key 기반 순서를 유지
 
 ### 2. 설계 변경
 
@@ -98,10 +99,20 @@
 
 #### B. 이벤트 정의
 
-- `ShopDeletionRequestedEvent`
-- `ShopDeletionCompletedEvent`
-- `ShopDeletionFailedEvent`
-- `ShopDeletionDeadEvent`
+- `MemberRoleChangeRequestedEvent`
+- `MemberRoleChangeCompletedEvent`
+- `MemberRoleChangeFailedEvent`
+- `MemberRoleChangeDeadEvent`
+
+공통 페이로드:
+
+- `memberId`, `shopId`, `action(ADD_SELLER | REMOVE_SELLER)`, `sagaType(SHOP_REGISTRATION | SHOP_DELETION)`
+
+토픽/키 전략:
+
+- 권한 변경 관련 Saga 이벤트는 `requested/completed/failed/dead` 토픽으로 분리한다.
+- 각 토픽의 Kafka 메시지 key는 `memberId`로 고정해 멤버 단위 순서를 유지한다.
+- 요청/결과 이벤트의 인과관계를 기준으로 상태 전이를 처리한다.
 
 참고:
 
@@ -110,9 +121,10 @@
 #### C. 오케스트레이션 규칙
 
 - 마지막 상점 삭제가 아니면 `COMPLETED`로 즉시 종료
-- 마지막 상점 삭제면 `REQUESTED` 상태에서 `ShopDeletionRequestedEvent` 발행 후 결과 이벤트 대기
+- 마지막 상점 삭제면 `REQUESTED` 상태에서 `MemberRoleChangeRequestedEvent(action=REMOVE_SELLER, sagaType=SHOP_DELETION)` 발행 후 결과 이벤트 대기
 - `member-service` 결과 이벤트로 최종 상태 전이
 - `ShopDeletedEvent`는 `ShopDeletion` 상태 `COMPLETED` 전이 이후 발행
+- `member-service` 권한 변경은 멱등(no-op 안전)으로 처리
 
 ---
 
@@ -124,23 +136,23 @@
 2. `shop-service`: `ShopDeletion` 생성(`REQUESTED`)
 3. `shop-service`: 상점 수 조건 평가(`count == 0`)
 4. (마지막 상점이 아닌 경우) `shop-service`: `ShopDeletion` 상태 `COMPLETED` 전이 + Shop soft delete + `ShopDeletedEvent` 발행
-5. (마지막 상점인 경우) `shop-service`: `ShopDeletionRequestedEvent` 발행
+5. (마지막 상점인 경우) `shop-service`: `MemberRoleChangeRequestedEvent(action=REMOVE_SELLER, sagaType=SHOP_DELETION)` 발행
 6. `member-service`: SELLER 권한 회수(이미 SELLER가 없다면 no-op)
-7. `member-service` -> Kafka: `ShopDeletionCompletedEvent`
+7. `member-service` -> Kafka: `MemberRoleChangeCompletedEvent(action=REMOVE_SELLER, sagaType=SHOP_DELETION)`
 8. `shop-service`: `ShopDeletion` 상태 `COMPLETED` 전이 + Shop soft delete + `ShopDeletedEvent` 발행
 
 #### 실패 흐름
 
 1. 1~5 동일
 2. `member-service`: 권한 회수가 비즈니스 규칙으로 실패
-3. `member-service` -> Kafka: `ShopDeletionFailedEvent`
+3. `member-service` -> Kafka: `MemberRoleChangeFailedEvent(action=REMOVE_SELLER, sagaType=SHOP_DELETION)`
 4. `shop-service`: `ShopDeletion` 상태 `FAILED` 전이 + 실패 사유 저장
 
 #### 최종 실패 흐름 (DEAD)
 
 1. 인프라 장애로 처리/발행 실패가 반복됨
 2. `member-service`: Kafka 재시도 소진 후 DLT 격리
-3. `member-service` -> Kafka: `ShopDeletionDeadEvent`
+3. `member-service` -> Kafka: `MemberRoleChangeDeadEvent(action=REMOVE_SELLER, sagaType=SHOP_DELETION)`
 4. `shop-service`: `ShopDeletion` 상태 `DEAD` 전이 + 실패 사유 저장
 
 ---
@@ -163,23 +175,23 @@ sequenceDiagram
         S->>S: Shop soft delete
         S->>K: ShopDeletedEvent
     else count == 0
-        S->>K: ShopDeletionRequestedEvent
-        M->>K: consume ShopDeletionRequestedEvent
+        S->>K: MemberRoleChangeRequestedEvent(REMOVE_SELLER, SHOP_DELETION)
+        M->>K: consume MemberRoleChangeRequestedEvent
         M->>M: deleteMemberRole(SELLER) (멱등)
         alt 권한 회수 성공
-            M->>K: ShopDeletionCompletedEvent
-            S->>K: consume ShopDeletionCompletedEvent
+            M->>K: MemberRoleChangeCompletedEvent(REMOVE_SELLER, SHOP_DELETION)
+            S->>K: consume MemberRoleChangeCompletedEvent
             S->>S: ShopDeletion COMPLETED
             S->>S: Shop soft delete
             S->>K: ShopDeletedEvent
         else 권한 회수 비즈니스 실패
-            M->>K: ShopDeletionFailedEvent
-            S->>K: consume ShopDeletionFailedEvent
+            M->>K: MemberRoleChangeFailedEvent(REMOVE_SELLER, SHOP_DELETION)
+            S->>K: consume MemberRoleChangeFailedEvent
             S->>S: ShopDeletion FAILED + reason 저장
         else 인프라 실패 반복 후 재시도 소진
             M->>K: DLT 처리
-            M->>K: ShopDeletionDeadEvent
-            S->>K: consume ShopDeletionDeadEvent
+            M->>K: MemberRoleChangeDeadEvent(REMOVE_SELLER, SHOP_DELETION)
+            S->>K: consume MemberRoleChangeDeadEvent
             S->>S: ShopDeletion DEAD + reason 저장
         end
     end
@@ -236,7 +248,48 @@ sequenceDiagram
 
 ---
 
-## 7. 추가 고려 사항
+## 7. 동시성 제어 구현
+
+상황:
+
+- 마지막 상점 삭제 여부를 `count == 0`으로 판단하는 구간에서 등록/삭제 동시 요청이 들어오면 정합성이 깨질 수 있었다.
+- 대표 케이스는 상점 2개 동시 삭제 시 두 트랜잭션 모두 `count > 0`으로 판단해 SELLER 권한 회수를 건너뛰는 문제였다.
+
+적용:
+
+- `registerShop`, `deleteMyShop` 시작 시점에 `memberId` 기반 PostgreSQL 트랜잭션 advisory lock을 획득하도록 변경했다.
+- 사용 쿼리: `pg_advisory_xact_lock(hashtext(CAST(:memberId AS text)))`
+- 동일 `memberId`에 대한 등록/삭제 요청은 같은 락 키를 사용해 같은 트랜잭션 경계 안에서 직렬화되도록 맞췄다.
+
+결과:
+
+- `count == 0` 분기 레이스를 차단해 마지막 상점 삭제 판단의 정합성을 확보했다.
+- 삭제/등록 교차 요청에서도 동일 멤버 기준으로 순차 처리되어 Saga 분기 안정성이 높아졌다.
+
+---
+
+## 8. 서비스 간 처리 안정화 (토픽 분리 + Kafka key = memberId)
+
+상황:
+
+- DB 트랜잭션 락으로 `shop-service` 내부 `count == 0` 정합성은 확보했지만, Saga 비동기 구간에서는 이벤트 처리 순서 역전 가능성이 남아 있었다.
+- 특히 삭제/등록 관련 권한 변경 이벤트가 교차될 때, 처리 순서가 바뀌면 최종 권한 상태가 흔들릴 수 있다.
+
+적용:
+
+- 권한 변경 관련 Saga 이벤트는 `requested/completed/failed/dead` 토픽으로 분리한다.
+- 각 토픽에서 Kafka 메시지 key를 `memberId`로 고정해 멤버 단위 순서를 유지한다.
+- `member-service` 권한 변경 로직은 멱등(no-op 안전)으로 유지한다.
+
+결과:
+
+- 요청/결과 이벤트의 역할이 분리되어 컨슈머 책임과 운영 구분이 명확해진다.
+- 인스턴스 스케일 아웃 환경에서도 멤버 단위 순서 보장 특성을 유지할 수 있다.
+- 서비스 간 권한 상태 역전 가능성을 운영 가능한 수준으로 낮출 수 있다.
+
+---
+
+## 9. 추가 고려 사항
 
 - Outbox 운영 고도화
   - Outbox 상태별(`READY`/`PROCESSING`/`FAILED`) 건수 모니터링과 알림 기준을 운영 지표로 관리
@@ -262,11 +315,15 @@ sequenceDiagram
 - 운영 관측성
   - `shopId`, `memberId`, `eventId`, `status` 기반 추적
   - `REQUESTED`/`FAILED` 장기 체류 알림
-- 동시성 개선 필요
-  - 현재 `count == 0` 삭제 시점 조건평가는 등록/삭제 동시성에서 정합성 깨질 수 있음
-  - 동시성 발생 예시: 상점 2개를 동시에 삭제하면 각 트랜잭션이 `count > 0`으로 판단해 SELLER 권한 회수를 모두 건너뛸 수 있음
-  - 동시성 발생 예시: 마지막 상점 삭제와 신규 상점 등록이 교차되면 SELLER 권한이 잘못 제거될 수 있음
-  - 개선 방식: member 단위 직렬화 또는 비동기 재평가 방식으로 개선 필요
+- pg_advisory_xact_lock 관련
+  - 현재 키 생성은 `hashtext` 기반이므로 매우 낮은 확률의 해시 충돌 시 서로 다른 멤버 요청이 함께 대기할 수 있음
+  - 충돌 리스크를 더 낮추려면 `pg_advisory_xact_lock(int, int)` 2-key 방식으로 확장 가능
 - 실패 정책
   - `FAILED`는 즉시 사용자 오류로 노출하지 않고 운영 처리 대상
   - `FAILED/DEAD` 상태에서는 삭제 재요청을 차단하고 운영자 개입으로 처리
+- 수정/삭제 경쟁
+  - `modifyMyShopInfo`와 등록/삭제 요청이 교차되면 상태 확인 시점과 반영 시점 사이 레이스가 생길 수 있음
+  - 필요 시 수정 경로에도 동일한 `memberId` 락 정책을 적용해 일관된 직렬화 범위를 유지
+- 회원탈퇴 일괄 삭제 경쟁
+  - `deleteAllMyShop`(회원탈퇴 경로)와 일반 등록/삭제 요청이 교차될 가능성을 운영 정책으로 통제해야 함
+  - 필요 시 `deleteAllMyShop`에도 동일한 `memberId` 락 정책을 적용해 충돌을 최소화
