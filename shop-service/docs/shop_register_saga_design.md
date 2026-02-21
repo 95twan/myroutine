@@ -257,7 +257,7 @@ sequenceDiagram
 
 ---
 
-## 7. 서비스 간 처리 안정화 (토픽 분리 + Kafka key = memberId)
+## 7. 서비스 간 처리 안정화
 
 상황:
 
