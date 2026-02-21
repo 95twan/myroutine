@@ -50,4 +50,9 @@ public class ShopRepositoryAdaptor implements ShopRepository {
     public int countByMemberIdAndDeletedAtIsNullAndIdNot(UUID memberId, UUID shopId) {
         return shopJpaRepository.countByMemberIdAndDeletedAtIsNullAndIdNot(memberId, shopId);
     }
+
+    @Override
+    public void getTxLock(UUID memberId) {
+        shopJpaRepository.getTxLock(memberId);
+    }
 }
