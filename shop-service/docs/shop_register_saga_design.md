@@ -184,24 +184,24 @@ sequenceDiagram
     participant M as member-service
 
     C->>S: registerShop
+    S->>S: tx lock(memberId) 획득
     S->>W: getWallet
     W-->>S: wallet OK
-    S->>S: Shop 저장 + ShopRegistration(REQUESTED)
-    S->>K: MemberRoleChangeRequestedEvent(ADD_SELLER, SHOP_REGISTRATION)
-    M->>K: consume MemberRoleChangeRequestedEvent
-    M->>M: addMemberRole(SELLER) (멱등)
-    alt role 추가 성공
-        M->>K: MemberRoleChangeCompletedEvent(ADD_SELLER, SHOP_REGISTRATION)
-        S->>K: consume MemberRoleChangeCompletedEvent
+    S->>S: Shop + ShopRegistration(REQUESTED) + Outbox(REQUESTED) 저장
+    Note over S,K: ShopOutboxScheduler가 Outbox를 폴링해 RequestedEvent 발행
+    K-->>M: MemberRoleChangeRequestedEvent(ADD_SELLER, SHOP_REGISTRATION) 전달
+    M->>M: 요청 이벤트 트랜잭션 처리 (SELLER add 멱등 + Outbox Completed 저장)
+    alt member 처리 성공
+        Note over M,K: MemberOutboxScheduler가 Outbox를 폴링해 CompletedEvent 발행
+        K-->>S: MemberRoleChangeCompletedEvent(ADD_SELLER, SHOP_REGISTRATION) 전달
         S->>S: ShopRegistration 상태 COMPLETED 전이
     else role 추가 비즈니스 실패
         M->>K: MemberRoleChangeFailedEvent(ADD_SELLER, SHOP_REGISTRATION)
-        S->>K: consume MemberRoleChangeFailedEvent
+        K-->>S: consume MemberRoleChangeFailedEvent
         S->>S: ShopRegistration 상태 FAILED 전이 + reason 저장
     else 인프라 실패 반복 후 재시도 소진
-        M->>K: DLT 처리
         M->>K: MemberRoleChangeDeadEvent(ADD_SELLER, SHOP_REGISTRATION)
-        S->>K: consume MemberRoleChangeDeadEvent
+        K-->>S: consume MemberRoleChangeDeadEvent
         S->>S: ShopRegistration 상태 DEAD 전이 + reason 저장
     end
 ```

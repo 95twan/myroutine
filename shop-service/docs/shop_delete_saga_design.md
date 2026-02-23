@@ -168,30 +168,31 @@ sequenceDiagram
     participant M as member-service
 
     C->>S: deleteMyShop
-    S->>S: ShopDeletion 상태 저장(REQUESTED)
-    S->>S: count == 0 조건 평가
+    S->>S: tx lock(memberId) 획득
+    S->>S: 삭제 가능 상태 검증 (멱등/차단/등록완료 여부)
+    S->>S: ShopDeletion 상태 저장(REQUESTED) + count 평가
     alt count > 0
         S->>S: ShopDeletion COMPLETED
         S->>S: Shop soft delete
-        S->>K: ShopDeletedEvent
+        S->>K: ShopDeletedEvent(AFTER_COMMIT)
     else count == 0
-        S->>K: MemberRoleChangeRequestedEvent(REMOVE_SELLER, SHOP_DELETION)
-        M->>K: consume MemberRoleChangeRequestedEvent
-        M->>M: deleteMemberRole(SELLER) (멱등)
+        S->>S: Outbox(REQUESTED, REMOVE_SELLER) 저장
+        Note over S,K: ShopOutboxScheduler가 Outbox를 폴링해 RequestedEvent 발행
+        K-->>M: MemberRoleChangeRequestedEvent(REMOVE_SELLER, SHOP_DELETION) 전달
+        M->>M: 요청 이벤트 트랜잭션 처리 (SELLER delete 멱등 + Outbox Completed 저장)
         alt 권한 회수 성공
-            M->>K: MemberRoleChangeCompletedEvent(REMOVE_SELLER, SHOP_DELETION)
-            S->>K: consume MemberRoleChangeCompletedEvent
+            Note over M,K: MemberOutboxScheduler가 Outbox를 폴링해 CompletedEvent 발행
+            K-->>S: MemberRoleChangeCompletedEvent(REMOVE_SELLER, SHOP_DELETION) 전달
             S->>S: ShopDeletion COMPLETED
             S->>S: Shop soft delete
-            S->>K: ShopDeletedEvent
+            S->>K: ShopDeletedEvent(AFTER_COMMIT)
         else 권한 회수 비즈니스 실패
             M->>K: MemberRoleChangeFailedEvent(REMOVE_SELLER, SHOP_DELETION)
-            S->>K: consume MemberRoleChangeFailedEvent
+            K-->>S: consume MemberRoleChangeFailedEvent
             S->>S: ShopDeletion FAILED + reason 저장
         else 인프라 실패 반복 후 재시도 소진
-            M->>K: DLT 처리
             M->>K: MemberRoleChangeDeadEvent(REMOVE_SELLER, SHOP_DELETION)
-            S->>K: consume MemberRoleChangeDeadEvent
+            K-->>S: consume MemberRoleChangeDeadEvent
             S->>S: ShopDeletion DEAD + reason 저장
         end
     end
