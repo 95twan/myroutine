@@ -1,6 +1,5 @@
 package com.node5.shopservice.shop.application.dto;
 
-
 import com.node5.shopservice.shop.domain.Shop;
 
 import java.util.UUID;
@@ -10,7 +9,8 @@ public record ShopInfoResponse(
         String shopName,
         String shopEmail,
         String shopPhoneNumber,
-        String shopAddress
+        String shopAddress,
+        String registrationStatus
 ) {
     public static ShopInfoResponse from(Shop shop) {
 
@@ -19,7 +19,8 @@ public record ShopInfoResponse(
                 shop.getShopName(),
                 shop.getShopEmail(),
                 shop.getShopPhoneNumber(),
-                shop.getShopAddress()
+                shop.getShopAddress(),
+                shop.getRegistration().getStatus().name()
         );
     }
 }

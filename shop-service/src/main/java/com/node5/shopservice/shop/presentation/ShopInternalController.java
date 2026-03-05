@@ -20,6 +20,7 @@ public class ShopInternalController {
         return ResponseEntity.ok(shopService.getMemberIdByShopId(shopId));
     }
 
+    // 회원 탈퇴시 member-service에서 가게 조회
     @GetMapping("/ids")
     public ResponseEntity<List<UUID>> getShopIdsByMemberId(@RequestParam UUID memberId){
         return ResponseEntity.ok(shopService.getShopIdsByMemberId(memberId));

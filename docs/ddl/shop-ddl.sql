@@ -14,6 +14,23 @@ CREATE TABLE shop."shop" (
 	CONSTRAINT pk_shop PRIMARY KEY (id)
 );
 
+CREATE TABLE shop."shop_registration"(
+    shop_id         uuid NOT NULL,
+    shop_registration_status varchar(20) NOT NULL,
+    created_at timestamp NOT NULL,
+    modified_at timestamp NOT NULL,
+    CONSTRAINT shop_registration_pkey PRIMARY KEY (shop_id)
+);
+
+CREATE TABLE shop."shop_deletion"(
+    shop_id         uuid NOT NULL,
+    shop_deletion_status varchar(20) NOT NULL,
+    created_at timestamp NOT NULL,
+    modified_at timestamp NOT NULL,
+    CONSTRAINT shop_deletion_pkey PRIMARY KEY (shop_id)
+);
+
+
 CREATE TABLE shop."settlement_source" (
 	item_amount numeric(38, 2) NOT NULL,
 	paid_at timestamp(6) NOT NULL,

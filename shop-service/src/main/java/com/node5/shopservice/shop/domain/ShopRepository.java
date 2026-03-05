@@ -8,11 +8,13 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface ShopRepository {
-    Page<Shop> findAllByMemberIdAndDeletedAtIsNull(UUID memberId, Pageable pageable);
+    Page<Shop> findAllWithRegistration(UUID memberId, Pageable pageable);
+    Optional<Shop> findByIdWithRegistration(UUID shopId, UUID memberId);
+    Optional<Shop> findByIdWithRegistrationAndDeletion(UUID shopId, UUID memberId);
     List<Shop> findAllByMemberIdAndDeletedAtIsNull(UUID memberId);
-    void save(Shop shop);
+    Shop save(Shop shop);
     Optional<Shop> findByIdAndMemberIdAndDeletedAtIsNull(UUID shopId, UUID memberId);
     int countByMemberIdAndDeletedAtIsNull(UUID memberId);
     void flush();
-    Optional<Shop> findById(UUID shopId);
+    Optional<Shop> findByIdAndStatusIsCompleted(UUID shopId);
 }

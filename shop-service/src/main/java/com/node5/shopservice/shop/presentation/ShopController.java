@@ -56,12 +56,13 @@ public class ShopController {
 
     @Operation(summary = "내 상점 정보 수정", description = "인증된 회원이 소유한 상점의 상세 정보를 수정합니다.")
     @PutMapping("/{shopId}")
-    public ResponseEntity<ShopInfoResponse> modifyMyShopInfo(
+    public ResponseEntity<Void> modifyMyShopInfo(
             @RequestHeader("Member-Id") UUID memberId,
             @PathVariable UUID shopId,
             @Valid @RequestBody ShopModifyRequest request
     ) {
-        return ResponseEntity.ok(shopService.modifyMyShopInfo(memberId, shopId, request.toCommand()));
+        shopService.modifyMyShopInfo(memberId, shopId, request.toCommand());
+        return ResponseEntity.ok().build();
     }
 
     @Operation(summary = "내 상점 삭제", description = "인증된 회원이 소유한 상점을 삭제합니다.")

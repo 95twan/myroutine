@@ -1,6 +1,8 @@
 package com.node5.memberservice.member.application;
 
 import com.node5.common.event.MemberDeletedEvent;
+import com.node5.common.event.ShopDeletionCompletedEvent;
+import com.node5.common.event.ShopRegistrationCompletedEvent;
 import com.node5.memberservice.auth.domain.OAuthRepository;
 import com.node5.memberservice.client.OrderClient;
 import com.node5.memberservice.client.ShopClient;
@@ -109,15 +111,21 @@ public class MemberService {
     }
 
     @Transactional
-    public void addMemberRole(UUID memberId, RoleModifyCommand command) {
+    public void addMemberRole(UUID memberId, UUID shopId, RoleModifyCommand command) {
         Member member = getNotDeletedMemberOrThrow(memberId);
         member.addRole(command.role());
+
+        ShopRegistrationCompletedEvent event = new ShopRegistrationCompletedEvent(shopId);
+        eventPublisher.publishEvent(event);
     }
 
     @Transactional
-    public void deleteMemberRole(UUID memberId, RoleModifyCommand command) {
+    public void deleteMemberRole(UUID memberId, UUID shopId, RoleModifyCommand command) {
         Member member = getNotDeletedMemberOrThrow(memberId);
         member.deleteRole(command.role());
+
+        ShopDeletionCompletedEvent event = new ShopDeletionCompletedEvent(shopId);
+        eventPublisher.publishEvent(event);
     }
 
     private Member getNotDeletedMemberOrThrow(UUID memberId) {

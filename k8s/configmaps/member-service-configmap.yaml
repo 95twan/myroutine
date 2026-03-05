@@ -46,6 +46,14 @@ data:
         producer:
           key-serializer: org.apache.kafka.common.serialization.StringSerializer
           value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+        consumer:
+          group-id: member-service
+          key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+          value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+          auto-offset-reset: latest
+          enable-auto-commit: false
+          properties:
+            spring.json.trusted.packages: "com.node5.common.event"
     
     api:
       v1: /api/v1
@@ -80,5 +88,10 @@ data:
     
     kafka:
       topics:
-        shop-deleted: shop-service.shop-deleted.v1
+        shop-registration-requested: shop-service.shop-registration-requested.v1
+        shop-registration-completed: member-service.shop-registration-completed.v1
+        shop-registration-failed: member-service.shop-registration-failed.v1
+        shop-deletion-requested: shop-service.shop-deletion-requested.v1
+        shop-deletion-completed: member-service.shop-deletion-completed.v1
+        shop-deletion-failed: member-service.shop-deletion-failed.v1
         member-deleted: member-service.member-deleted.v1

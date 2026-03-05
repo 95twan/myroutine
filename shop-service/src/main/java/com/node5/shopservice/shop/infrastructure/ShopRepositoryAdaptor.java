@@ -1,7 +1,6 @@
 package com.node5.shopservice.shop.infrastructure;
 
-import com.node5.shopservice.shop.domain.Shop;
-import com.node5.shopservice.shop.domain.ShopRepository;
+import com.node5.shopservice.shop.domain.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -18,8 +17,18 @@ public class ShopRepositoryAdaptor implements ShopRepository {
     private final ShopJpaRepository shopJpaRepository;
 
     @Override
-    public Page<Shop> findAllByMemberIdAndDeletedAtIsNull(UUID memberId, Pageable pageable) {
-        return shopJpaRepository.findAllByMemberIdAndDeletedAtIsNull(memberId, pageable);
+    public Page<Shop> findAllWithRegistration(UUID memberId, Pageable pageable) {
+        return shopJpaRepository.findAllWithRegistration(memberId, pageable);
+    }
+
+    @Override
+    public Optional<Shop> findByIdWithRegistration(UUID shopId, UUID memberId) {
+        return shopJpaRepository.findByIdWithRegistration(shopId, memberId);
+    }
+
+    @Override
+    public Optional<Shop> findByIdWithRegistrationAndDeletion(UUID shopId, UUID memberId) {
+        return shopJpaRepository.findByIdWithRegistrationAndDeletion(shopId, memberId);
     }
 
     @Override
@@ -28,8 +37,8 @@ public class ShopRepositoryAdaptor implements ShopRepository {
     }
 
     @Override
-    public void save(Shop shop) {
-        shopJpaRepository.save(shop);
+    public Shop save(Shop shop) {
+        return shopJpaRepository.save(shop);
     }
 
     @Override
@@ -48,7 +57,7 @@ public class ShopRepositoryAdaptor implements ShopRepository {
     }
 
     @Override
-    public Optional<Shop> findById(UUID shopId) {
-        return shopJpaRepository.findById(shopId);
+    public Optional<Shop> findByIdAndStatusIsCompleted(UUID shopId) {
+        return shopJpaRepository.findByIdAndStatusIsCompleted(shopId, ShopRegistrationStatus.COMPLETED);
     }
 }

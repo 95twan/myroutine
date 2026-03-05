@@ -1,15 +1,14 @@
 package com.node5.shopservice.shop.application;
 
 import com.node5.common.event.ShopDeletedEvent;
-import com.node5.shopservice.client.MemberClient;
+import com.node5.common.event.ShopDeletionRequestedEvent;
+import com.node5.common.event.ShopRegistrationRequestedEvent;
 import com.node5.shopservice.client.WalletClient;
-import com.node5.shopservice.client.dto.RoleModifyRequest;
 import com.node5.shopservice.shop.application.dto.ShopInfoResponse;
 import com.node5.shopservice.shop.application.dto.ShopListResponse;
 import com.node5.shopservice.shop.application.dto.ShopModifyCommand;
 import com.node5.shopservice.shop.application.dto.ShopRegisterCommand;
-import com.node5.shopservice.shop.domain.Shop;
-import com.node5.shopservice.shop.domain.ShopRepository;
+import com.node5.shopservice.shop.domain.*;
 import com.node5.shopservice.shop.exception.ShopErrorCode;
 import com.node5.shopservice.shop.exception.ShopException;
 import feign.FeignException;
@@ -30,19 +29,18 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class ShopService {
 
-    private static final String ROLE_SELLER = "SELLER";
-
     private final ShopRepository shopRepository;
+    private final ShopRegistrationRepository shopRegistrationRepository;
+    private final ShopDeletionRepository shopDeletionRepository;
     private final WalletClient walletClient;
-    private final MemberClient memberClient;
     private final ApplicationEventPublisher eventPublisher;
 
     public Page<ShopListResponse> findMyShopList(UUID memberId, Pageable pageable) {
-        return shopRepository.findAllByMemberIdAndDeletedAtIsNull(memberId, pageable).map(ShopListResponse::from);
+        return shopRepository.findAllWithRegistration(memberId, pageable).map(ShopListResponse::from);
     }
 
     public ShopInfoResponse findMyShopInfo(UUID memberId, UUID shopId) {
-        Shop shop = shopRepository.findByIdAndMemberIdAndDeletedAtIsNull(shopId, memberId)
+        Shop shop = shopRepository.findByIdWithRegistration(shopId, memberId)
                 .orElseThrow(() -> new ShopException(ShopErrorCode.SHOP_NOT_FOUND));
         return ShopInfoResponse.from(shop);
     }
@@ -51,16 +49,11 @@ public class ShopService {
     public void registerShop(UUID memberId, ShopRegisterCommand command) {
         checkWalletExists(memberId);
 
-        Shop shop = Shop.create(memberId, command);
-        shopRepository.save(shop);
+        Shop shop = shopRepository.save(Shop.create(memberId, command));
+        shopRegistrationRepository.save(ShopRegistration.create(shop));
 
-        try {
-            RoleModifyRequest request = new RoleModifyRequest(ROLE_SELLER);
-            memberClient.addMemberRole(memberId, request);
-        } catch (Exception e) {
-            log.error("memberClient.updateMemberRoles error : {}", e.getMessage());
-            throw new ShopException(ShopErrorCode.ROLE_UPDATE_FAILED);
-        }
+        ShopRegistrationRequestedEvent shopRegistrationRequestedEvent = new ShopRegistrationRequestedEvent(shop.getId(), memberId);
+        eventPublisher.publishEvent(shopRegistrationRequestedEvent);
     }
 
     private void checkWalletExists(UUID memberId) {
@@ -75,40 +68,52 @@ public class ShopService {
     }
 
     @Transactional
-    public ShopInfoResponse modifyMyShopInfo(UUID memberId, UUID shopId, ShopModifyCommand command) {
+    public void modifyMyShopInfo(UUID memberId, UUID shopId, ShopModifyCommand command) {
         Shop shop = shopRepository.findByIdAndMemberIdAndDeletedAtIsNull(shopId, memberId)
                 .orElseThrow(() -> new ShopException(ShopErrorCode.SHOP_NOT_FOUND));
         shop.update(command);
-        return ShopInfoResponse.from(shop);
     }
 
     @Transactional
     public void deleteMyShop(UUID memberId, UUID shopId) {
-        Shop shop = shopRepository.findByIdAndMemberIdAndDeletedAtIsNull(shopId, memberId)
+        Shop shop = shopRepository.findByIdWithRegistrationAndDeletion(shopId, memberId)
                 .orElseThrow(() -> new ShopException(ShopErrorCode.SHOP_NOT_FOUND));
 
-        ShopDeletedEvent shopDeletedEvent = new ShopDeletedEvent(shop.getId());
-
-        shop.delete();
-        shopRepository.flush();
-
-        int shopCount = shopRepository.countByMemberIdAndDeletedAtIsNull(memberId);
-        if (shopCount == 0) {
-            try {
-                memberClient.deleteMemberRole(memberId, ROLE_SELLER);
-            } catch (Exception e) {
-                log.error("memberClient.updateMemberRoles error : {}", e.getMessage());
-                throw new ShopException(ShopErrorCode.ROLE_UPDATE_FAILED);
+        // 멱등 처리
+        if (shop.getDeletion() != null) {
+            ShopDeletionStatus status = shop.getDeletion().getStatus();
+            if (status == ShopDeletionStatus.FAILED || status == ShopDeletionStatus.DEAD) {
+                throw new ShopException(ShopErrorCode.SHOP_DELETE_NOT_ALLOWED);
+            }
+            if (status == ShopDeletionStatus.REQUESTED || status == ShopDeletionStatus.COMPLETED) {
+                return;
             }
         }
 
-        // 가게 삭제 topic 발행
-        eventPublisher.publishEvent(shopDeletedEvent);
+        if (shop.getDeletedAt() != null) {
+            return;
+        }
+
+        if (shop.getRegistration() == null || shop.getRegistration().getStatus() != ShopRegistrationStatus.COMPLETED) {
+            throw new ShopException(ShopErrorCode.SHOP_DELETE_NOT_ALLOWED);
+        }
+
+        shop.delete();
+
+        int shopCount = shopRepository.countByMemberIdAndDeletedAtIsNull(memberId);
+        if (shopCount != 0) {
+            shopDeletionRepository.save(ShopDeletion.create(shop, ShopDeletionStatus.COMPLETED));
+            ShopDeletedEvent shopDeletedEvent = new ShopDeletedEvent(shop.getId());
+            eventPublisher.publishEvent(shopDeletedEvent);
+        } else {
+            shopDeletionRepository.save(ShopDeletion.create(shop, ShopDeletionStatus.REQUESTED));
+            ShopDeletionRequestedEvent shopDeletionRequestedEvent = new ShopDeletionRequestedEvent(shop.getId(), memberId);
+            eventPublisher.publishEvent(shopDeletionRequestedEvent);
+        }
     }
 
-    // Todo - 삭제된 shop 이면?
     public UUID getMemberIdByShopId(UUID shopId) {
-        Shop shop = shopRepository.findById(shopId).orElseThrow(
+        Shop shop = shopRepository.findByIdAndStatusIsCompleted(shopId).orElseThrow(
                 () -> new ShopException(ShopErrorCode.SHOP_NOT_FOUND)
         );
 
@@ -125,5 +130,44 @@ public class ShopService {
     public List<UUID> getShopIdsByMemberId(UUID memberId) {
         List<Shop> shops = shopRepository.findAllByMemberIdAndDeletedAtIsNull(memberId);
         return shops.stream().map(Shop::getId).toList();
+    }
+
+    @Transactional
+    public void registerShopCompleted(UUID shopId) {
+        ShopRegistration shopRegistration = shopRegistrationRepository.findByShopId(shopId).orElseThrow(
+                () -> new ShopException(ShopErrorCode.SHOP_REGISTRATION_NOT_FOUND)
+        );
+
+        shopRegistration.shopRegistrationCompleted();
+    }
+
+    @Transactional
+    public void registerShopFailed(UUID shopId) {
+        ShopRegistration shopRegistration = shopRegistrationRepository.findByShopId(shopId).orElseThrow(
+                () -> new ShopException(ShopErrorCode.SHOP_REGISTRATION_NOT_FOUND)
+        );
+
+        shopRegistration.shopRegistrationFailed();
+    }
+
+    @Transactional
+    public void deleteShopCompleted(UUID shopId) {
+        ShopDeletion shopDeletion = shopDeletionRepository.findByShopId(shopId).orElseThrow(
+                () -> new ShopException(ShopErrorCode.SHOP_DELETION_NOT_FOUND)
+        );
+
+        if(shopDeletion.shopDeletionCompleted()) {
+            ShopDeletedEvent shopDeletedEvent = new ShopDeletedEvent(shopId);
+            eventPublisher.publishEvent(shopDeletedEvent);
+        }
+    }
+
+    @Transactional
+    public void deleteShopFailed(UUID shopId) {
+        ShopDeletion shopDeletion = shopDeletionRepository.findByShopId(shopId).orElseThrow(
+                () -> new ShopException(ShopErrorCode.SHOP_DELETION_NOT_FOUND)
+        );
+
+        shopDeletion.shopDeletionFailed();
     }
 }
