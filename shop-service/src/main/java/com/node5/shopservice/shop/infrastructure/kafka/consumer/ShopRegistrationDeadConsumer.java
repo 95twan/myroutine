@@ -1,6 +1,6 @@
 package com.node5.shopservice.shop.infrastructure.kafka.consumer;
 
-import com.node5.common.event.ShopDeletionFailedEvent;
+import com.node5.common.event.ShopRegistrationDeadEvent;
 import com.node5.shopservice.shop.application.ShopService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -11,16 +11,16 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class ShopDeletionFailedConsumer {
+public class ShopRegistrationDeadConsumer {
 
     private final ShopService shopService;
 
     @KafkaListener(
-            topics = "${kafka.topics.shop-deletion-failed}",
+            topics = "${kafka.topics.shop-registration-dead}",
             containerFactory = "retryKafkaListenerContainerFactory"
     )
-    public void consume(ShopDeletionFailedEvent event, Acknowledgment ack) {
-        shopService.deleteShopFailed(event);
+    public void consume(ShopRegistrationDeadEvent event, Acknowledgment ack) {
+        shopService.registerShopDead(event);
         ack.acknowledge();
     }
 }

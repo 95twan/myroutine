@@ -17,12 +17,17 @@ public class ShopRegistrationFailedProducer {
     @Value("${kafka.topics.shop-registration-failed}")
     private String topic;
 
-    public void send(ShopRegistrationFailedEvent shopRegistrationFailedEvent) {
+    public void sendAndWait(ShopRegistrationFailedEvent shopRegistrationFailedEvent) {
         String key = shopRegistrationFailedEvent.shopId().toString();
-        kafkaTemplate.send(topic, key, shopRegistrationFailedEvent).whenComplete((result, ex) -> {
-            if (ex != null) {
-                log.error("회원 권한 추가 실패 토픽 발행 실패, key={}", key, ex);
-            }
-        });
+        try {
+            kafkaTemplate.send(topic, key, shopRegistrationFailedEvent).whenComplete((result, ex) -> {
+                if (ex != null) {
+                    log.error("회원 권한 추가 실패 토픽 발행 실패, key={}", key, ex);
+                }
+            }).get();
+        } catch (Exception e) {
+            throw new RuntimeException("failed to publish ShopRegistrationFailedEvent", e);
+        }
+
     }
 }

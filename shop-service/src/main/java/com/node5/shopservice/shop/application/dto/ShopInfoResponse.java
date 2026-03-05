@@ -10,9 +10,26 @@ public record ShopInfoResponse(
         String shopEmail,
         String shopPhoneNumber,
         String shopAddress,
-        String registrationStatus
+        String status
 ) {
     public static ShopInfoResponse from(Shop shop) {
+        String status;
+
+        if (shop.getDeletion() != null) {
+            status = switch (shop.getDeletion().getStatus()) {
+                case COMPLETED -> "DELETED";
+                case REQUESTED -> "DELETING";
+                case FAILED -> "DELETE_FAILED";
+                case DEAD -> "DELETE_DEAD";
+            };
+        } else  {
+            status = switch (shop.getRegistration().getStatus()) {
+                case COMPLETED -> "ACTIVE";
+                case REQUESTED -> "REGISTERING";
+                case FAILED -> "REGISTER_FAILED";
+                case DEAD -> "REGISTER_DEAD";
+            };
+        }
 
         return new ShopInfoResponse(
                 shop.getId(),
@@ -20,7 +37,7 @@ public record ShopInfoResponse(
                 shop.getShopEmail(),
                 shop.getShopPhoneNumber(),
                 shop.getShopAddress(),
-                shop.getRegistration().getStatus().name()
+                status
         );
     }
 }

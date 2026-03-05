@@ -5,6 +5,7 @@ import com.node5.common.event.ShopRegistrationFailedEvent;
 import com.node5.memberservice.member.application.MemberService;
 import com.node5.memberservice.member.application.dto.RoleModifyCommand;
 import com.node5.memberservice.member.domain.MemberRole;
+import com.node5.memberservice.member.exception.MemberException;
 import com.node5.memberservice.member.infrastructure.kafka.producer.ShopRegistrationFailedProducer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,14 +21,17 @@ public class ShopRegistrationRequestedConsumer {
     private final MemberService memberService;
     private final ShopRegistrationFailedProducer shopRegistrationFailedProducer;
 
-    @KafkaListener(topics = "${kafka.topics.shop-registration-requested}")
+    @KafkaListener(
+            topics = "${kafka.topics.shop-registration-requested}",
+            containerFactory = "retryKafkaListenerContainerFactory"
+    )
     public void consume(ShopRegistrationRequestedEvent event, Acknowledgment ack) {
         try {
             memberService.addMemberRole(event.memberId(), event.shopId(), new RoleModifyCommand(MemberRole.SELLER));
-        } catch (Exception e) {
-            ShopRegistrationFailedEvent shopRegistrationFailedEvent = new ShopRegistrationFailedEvent(event.shopId());
-            shopRegistrationFailedProducer.send(shopRegistrationFailedEvent);
-        } finally {
+            ack.acknowledge();
+        } catch (MemberException e) {
+            ShopRegistrationFailedEvent shopRegistrationFailedEvent = new ShopRegistrationFailedEvent(event.shopId(), e.getErrorCode().getCode(), e.getErrorCode().getMessage());
+            shopRegistrationFailedProducer.sendAndWait(shopRegistrationFailedEvent);
             ack.acknowledge();
         }
     }

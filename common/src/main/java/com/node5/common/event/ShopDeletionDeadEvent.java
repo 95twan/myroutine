@@ -2,7 +2,7 @@ package com.node5.common.event;
 
 import java.util.UUID;
 
-public record ShopDeletionFailedEvent(
+public record ShopDeletionDeadEvent(
         UUID shopId,
         String reasonCode,
         String reasonMessage

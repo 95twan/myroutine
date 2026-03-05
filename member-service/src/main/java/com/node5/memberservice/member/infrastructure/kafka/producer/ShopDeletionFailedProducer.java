@@ -17,12 +17,16 @@ public class ShopDeletionFailedProducer {
     @Value("${kafka.topics.shop-deletion-failed}")
     private String topic;
 
-    public void send(ShopDeletionFailedEvent shopDeletionFailedEvent) {
+    public void sendAndWait(ShopDeletionFailedEvent shopDeletionFailedEvent) {
         String key = shopDeletionFailedEvent.shopId().toString();
-        kafkaTemplate.send(topic, key, shopDeletionFailedEvent).whenComplete((result, ex) -> {
-            if (ex != null) {
-                log.error("회원 권한 삭제 실패 토픽 발행 실패, key={}", key, ex);
-            }
-        });
+        try {
+            kafkaTemplate.send(topic, key, shopDeletionFailedEvent).whenComplete((result, ex) -> {
+                if (ex != null) {
+                    log.error("회원 권한 삭제 실패 토픽 발행 실패, key={}", key, ex);
+                }
+            }).get();
+        } catch (Exception e) {
+            throw new RuntimeException("failed to publish ShopDeletionFailedEvent", e);
+        }
     }
 }

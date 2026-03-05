@@ -15,9 +15,12 @@ public class ShopRegistrationFailedConsumer {
 
     private final ShopService shopService;
 
-    @KafkaListener(topics = "${kafka.topics.shop-registration-failed}")
+    @KafkaListener(
+            topics = "${kafka.topics.shop-registration-failed}",
+            containerFactory = "retryKafkaListenerContainerFactory"
+    )
     public void consume(ShopRegistrationFailedEvent event, Acknowledgment ack) {
-        shopService.registerShopFailed(event.shopId());
+        shopService.registerShopFailed(event);
         ack.acknowledge();
     }
 }

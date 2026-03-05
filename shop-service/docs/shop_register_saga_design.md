@@ -121,12 +121,13 @@
 ### 2. 설계 변경
 
 #### A. 상태 분리
-- ShopRegistration 상태: `REQUESTED → COMPLETED / FAILED`
+- ShopRegistration 상태: `REQUESTED → COMPLETED / FAILED / DEAD`
 
 #### B. 이벤트 정의
 - `ShopRegistrationRequestedEvent`
 - `ShopRegistrationCompletedEvent`
 - `ShopRegistrationFailedEvent`
+- `ShopRegistrationDeadEvent`
 
 #### C. 멱등 역할 부여 위임
 - `member-service`가 멱등하게 SELLER 권한 부여 처리
@@ -148,9 +149,15 @@
 
 #### 실패 흐름
 1. 1~5 동일
-2. 역할 추가 실패
+2. 역할 추가가 비즈니스 규칙으로 실패
 3. `member-service` → Kafka : `ShopRegistrationFailedEvent`
-4. `shop-service` : ShopRegistration 상태 `FAILED` 전이
+4. `shop-service` : ShopRegistration 상태 `FAILED` 전이 + 실패 사유 저장
+
+#### 최종 실패 흐름 (DEAD)
+1. 인프라 장애로 처리/발행 실패가 반복됨
+2. `member-service` : Kafka 재시도 소진 후 DLT 격리
+3. `member-service` : `ShopRegistrationDeadEvent` 발행
+4. `shop-service` : ShopRegistration 상태 `DEAD` 전이 + 실패 사유 저장
 
 ---
 
@@ -176,22 +183,55 @@ sequenceDiagram
         M->>K: ShopRegistrationCompletedEvent
         S->>K: consume ShopRegistrationCompletedEvent
         S->>S: ShopRegistration 상태 COMPLETED 전이
-    else role 추가 실패
+    else role 추가 비즈니스 실패
         M->>K: ShopRegistrationFailedEvent
         S->>K: consume ShopRegistrationFailedEvent
-        S->>S: ShopRegistration 상태 FAILED 전이
+        S->>S: ShopRegistration 상태 FAILED 전이 + reason 저장
+    else 인프라 실패 반복 후 재시도 소진
+        M->>K: DLT 처리
+        M->>K: ShopRegistrationDeadEvent
+        S->>K: consume ShopRegistrationDeadEvent
+        S->>S: ShopRegistration 상태 DEAD 전이 + reason 저장
     end
 ```
 
 ---
 
-### 5. 추가 고려 사항
+## 5. Retry + DLT + DEAD 구현
 
-- 이벤트 재시도 및 DLQ 구성
+상황:
+
+- 등록 처리 중 실패가 발생해도 원인이 항상 같지 않았다.
+- 비즈니스 실패(권한 부여 불가)와 인프라 실패(Kafka/네트워크)가 섞여 있었다.
+
+판단:
+
+- 두 실패를 같은 정책으로 처리하면 재시도 기준이 불명확해진다.
+
+적용:
+
+- 비즈니스 실패는 `FAILED`로 즉시 확정했다.
+- 인프라 실패는 Kafka 재시도 + DLT 경로로 위임했다.
+- DLT는 내부 복구 채널로만 쓰고, 외부에는 `DEAD` 도메인 이벤트로 변환해 전달했다.
+
+결과:
+
+- 재시도 대상과 종료 대상이 명확히 분리됐다.
+- 서비스 간 계약은 `FAILED/DEAD` 이벤트로 단순화됐다.
+- 운영 복구 경로는 내부(DLT), 상태 확정은 도메인 이벤트 중심으로 정리됐다.
+
+---
+
+## 6. 추가 고려 사항
+
 - Outbox 도입
   - 현재는 트랜잭션 커밋과 이벤트 발행이 분리되어 있어 **발행 실패 시 누락 위험**이 존재
   - Outbox를 적용하면 **DB 커밋과 이벤트 기록을 원자적으로 보장**할 수 있음
   - 실패 시 재발행이 가능해 **이벤트 유실을 방지**할 수 있음
+- 수동 재처리 운영 절차
+  - 현재는 재시도 소진 시 DLT 적재까지 자동 처리
+  - DLT 적재 건은 운영 알림 후 수동 재처리(재발행/보정) 기준을 별도로 유지
+  - 반복 실패 건은 원인 분류(데이터/코드/인프라) 후 재처리 여부를 결정
 - 운영 관측성
   - `shopId`, `memberId`, `eventId`, `status` 기반 추적
   - `REQUESTED`/`FAILED` 장기 체류 알림

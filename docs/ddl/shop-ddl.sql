@@ -17,6 +17,8 @@ CREATE TABLE shop."shop" (
 CREATE TABLE shop."shop_registration"(
     shop_id         uuid NOT NULL,
     shop_registration_status varchar(20) NOT NULL,
+    failure_reason_code varchar(20) NULL,
+    failure_reason_message varchar(100) NULL,
     created_at timestamp NOT NULL,
     modified_at timestamp NOT NULL,
     CONSTRAINT shop_registration_pkey PRIMARY KEY (shop_id)
@@ -25,6 +27,8 @@ CREATE TABLE shop."shop_registration"(
 CREATE TABLE shop."shop_deletion"(
     shop_id         uuid NOT NULL,
     shop_deletion_status varchar(20) NOT NULL,
+    failure_reason_code varchar(20) NULL,
+    failure_reason_message varchar(100) NULL,
     created_at timestamp NOT NULL,
     modified_at timestamp NOT NULL,
     CONSTRAINT shop_deletion_pkey PRIMARY KEY (shop_id)

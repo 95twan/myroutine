@@ -12,7 +12,9 @@ public enum ShopErrorCode implements BaseErrorCode {
     UNCAUGHT_EXCEPTION(HttpStatus.INTERNAL_SERVER_ERROR.value(), "SHOP_004", "알 수 없는 서버 에러"),
     SHOP_REGISTRATION_NOT_FOUND(HttpStatus.NOT_FOUND.value(), "SHOP_005", "상점 등록 정보를 찾을 수 없습니다."),
     SHOP_DELETION_NOT_FOUND(HttpStatus.NOT_FOUND.value(), "SHOP_006", "상점 삭제 정보를 찾을 수 없습니다."),
-    SHOP_DELETE_NOT_ALLOWED(HttpStatus.CONFLICT.value(), "SHOP_007", "등록 진행 중인 상점은 삭제할 수 없습니다.");
+    SHOP_DELETE_NOT_ALLOWED(HttpStatus.CONFLICT.value(), "SHOP_007", "등록 진행 중인 상점은 삭제할 수 없습니다."),
+    SHOP_IS_REGISTERING(HttpStatus.BAD_REQUEST.value(), "SHOP_008", "상점이 등록 중입니다."),
+    SHOP_IS_DELETING(HttpStatus.BAD_REQUEST.value(), "SHOP_009", "상점이 삭제 중입니다.");
 
     private final int status;
     private final String code;

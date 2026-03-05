@@ -17,18 +17,13 @@ public class ShopRepositoryAdaptor implements ShopRepository {
     private final ShopJpaRepository shopJpaRepository;
 
     @Override
-    public Page<Shop> findAllWithRegistration(UUID memberId, Pageable pageable) {
-        return shopJpaRepository.findAllWithRegistration(memberId, pageable);
+    public Page<Shop> findAllWithStatusAndDeletedAtIsNull(UUID memberId, Pageable pageable) {
+        return shopJpaRepository.findAllWithStatusAndDeletedAtIsNull(memberId, pageable);
     }
 
     @Override
-    public Optional<Shop> findByIdWithRegistration(UUID shopId, UUID memberId) {
-        return shopJpaRepository.findByIdWithRegistration(shopId, memberId);
-    }
-
-    @Override
-    public Optional<Shop> findByIdWithRegistrationAndDeletion(UUID shopId, UUID memberId) {
-        return shopJpaRepository.findByIdWithRegistrationAndDeletion(shopId, memberId);
+    public Optional<Shop> findByIdWithStatusAndDeletedAtIsNull(UUID shopId, UUID memberId) {
+        return shopJpaRepository.findByIdWithStatusAndDeletedAtIsNull(shopId, memberId);
     }
 
     @Override
@@ -42,22 +37,12 @@ public class ShopRepositoryAdaptor implements ShopRepository {
     }
 
     @Override
-    public Optional<Shop> findByIdAndMemberIdAndDeletedAtIsNull(UUID shopId, UUID memberId) {
-        return shopJpaRepository.findByIdAndMemberIdAndDeletedAtIsNull(shopId, memberId);
+    public Optional<Shop> findByIdAndRegistrationStatusIs(UUID shopId, ShopRegistrationStatus status) {
+        return shopJpaRepository.findByIdAndRegistrationStatusIs(shopId, status);
     }
 
     @Override
-    public int countByMemberIdAndDeletedAtIsNull(UUID memberId) {
-        return shopJpaRepository.countByMemberIdAndDeletedAtIsNull(memberId);
-    }
-
-    @Override
-    public void flush() {
-        shopJpaRepository.flush();
-    }
-
-    @Override
-    public Optional<Shop> findByIdAndStatusIsCompleted(UUID shopId) {
-        return shopJpaRepository.findByIdAndStatusIsCompleted(shopId, ShopRegistrationStatus.COMPLETED);
+    public int countByMemberIdAndDeletedAtIsNullAndIdNot(UUID memberId, UUID shopId) {
+        return shopJpaRepository.countByMemberIdAndDeletedAtIsNullAndIdNot(memberId, shopId);
     }
 }
