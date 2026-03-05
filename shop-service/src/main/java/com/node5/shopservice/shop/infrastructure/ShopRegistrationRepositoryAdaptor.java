@@ -24,8 +24,4 @@ public class ShopRegistrationRepositoryAdaptor implements ShopRegistrationReposi
         return shopRegistrationJpaRepository.findByShopId(shopId);
     }
 
-    @Override
-    public Optional<ShopRegistration> findByShopId(UUID shopId) {
-        return shopRegistrationJpaRepository.findByShopId(shopId);
-    }
 }

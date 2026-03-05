@@ -39,16 +39,6 @@ public interface ShopJpaRepository extends JpaRepository<Shop, UUID> {
     @Query("""
                 select s
                 from Shop s
-                join fetch s.registration sr
-                left join fetch s.deletion sd
-                where s.id = :shopId
-                  and s.memberId = :memberId
-            """)
-    Optional<Shop> findByIdWithRegistrationAndDeletion(UUID shopId, UUID memberId);
-
-    @Query("""
-                select s
-                from Shop s
                 join ShopRegistration sr on sr.shopId = s.id
                 where s.id = :shopId
                     and sr.status = :status
