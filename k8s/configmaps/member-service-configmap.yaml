@@ -90,12 +90,8 @@ data:
     
     kafka:
       topics:
-        shop-registration-requested: shop-service.shop-registration-requested.v1
-        shop-registration-completed: member-service.shop-registration-completed.v1
-        shop-registration-failed: member-service.shop-registration-failed.v1
-        shop-registration-dead: member-service.shop-registration-dead.v1
-        shop-deletion-requested: shop-service.shop-deletion-requested.v1
-        shop-deletion-completed: member-service.shop-deletion-completed.v1
-        shop-deletion-failed: member-service.shop-deletion-failed.v1
-        shop-deletion-dead: member-service.shop-deletion-dead.v1
+        member-role-change-requested: shop-service.member-role-change-requested.v1
+        member-role-change-completed: member-service.member-role-change-completed.v1
+        member-role-change-failed: member-service.member-role-change-failed.v1
+        member-role-change-dead: member-service.member-role-change-dead.v1
         member-deleted: member-service.member-deleted.v1

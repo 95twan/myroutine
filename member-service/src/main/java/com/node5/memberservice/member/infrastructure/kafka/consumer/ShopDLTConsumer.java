@@ -1,11 +1,8 @@
 package com.node5.memberservice.member.infrastructure.kafka.consumer;
 
-import com.node5.common.event.ShopDeletionDeadEvent;
-import com.node5.common.event.ShopDeletionRequestedEvent;
-import com.node5.common.event.ShopRegistrationDeadEvent;
-import com.node5.common.event.ShopRegistrationRequestedEvent;
-import com.node5.memberservice.member.infrastructure.kafka.producer.ShopDeletionDeadProducer;
-import com.node5.memberservice.member.infrastructure.kafka.producer.ShopRegistrationDeadProducer;
+import com.node5.common.event.MemberRoleChangeDeadEvent;
+import com.node5.common.event.MemberRoleChangeRequestedEvent;
+import com.node5.memberservice.member.infrastructure.kafka.producer.MemberRoleChangeDeadProducer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -15,46 +12,36 @@ import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.stereotype.Component;
 
+import java.nio.charset.StandardCharsets;
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class ShopDLTConsumer {
 
-    private final ShopRegistrationDeadProducer shopRegistrationDeadProducer;
-    private final ShopDeletionDeadProducer shopDeletionDeadProducer;
+    private final MemberRoleChangeDeadProducer memberRoleChangeDeadProducer;
 
     @KafkaListener(
-            topics = "${kafka.topics.shop-registration-requested}.dlt",
+            topics = "${kafka.topics.member-role-change-requested}.dlt",
             containerFactory = "dltKafkaListenerContainerFactory"
     )
-    public void consume(ShopRegistrationRequestedEvent event, Acknowledgment ack, ConsumerRecord<String, ShopRegistrationRequestedEvent> record) {
-
-        String reasonCode  = "DLT_EXHAUSTED";
+    public void consume(MemberRoleChangeRequestedEvent event, Acknowledgment ack, ConsumerRecord<String, MemberRoleChangeRequestedEvent> record) {
+        String reasonCode = "DLT_EXHAUSTED";
         String reasonMessage = header(record, KafkaHeaders.DLT_EXCEPTION_MESSAGE);
+        MemberRoleChangeDeadEvent memberRoleChangeDeadEvent = new MemberRoleChangeDeadEvent(
+                event.shopId(),
+                event.memberId(),
+                event.sagaType(),
+                reasonCode,
+                reasonMessage
+        );
+        memberRoleChangeDeadProducer.sendAndWait(memberRoleChangeDeadEvent);
 
-        ShopRegistrationDeadEvent shopRegistrationDeadEvent = new ShopRegistrationDeadEvent(event.shopId(), reasonCode, reasonMessage);
-        shopRegistrationDeadProducer.sendAndWait(shopRegistrationDeadEvent);
         ack.acknowledge();
-
-    }
-
-    @KafkaListener(
-            topics = "${kafka.topics.shop-deletion-requested}.dlt",
-            containerFactory = "dltKafkaListenerContainerFactory"
-    )
-    public void consume(ShopDeletionRequestedEvent event, Acknowledgment ack, ConsumerRecord<String, ShopDeletionRequestedEvent> record) {
-
-        String reasonCode  = "DLT_EXHAUSTED";
-        String reasonMessage = header(record, KafkaHeaders.DLT_EXCEPTION_MESSAGE);
-
-        ShopDeletionDeadEvent shopDeletionDeadEvent = new ShopDeletionDeadEvent(event.shopId(), reasonCode, reasonMessage);
-        shopDeletionDeadProducer.sendAndWait(shopDeletionDeadEvent);
-        ack.acknowledge();
-
     }
 
     private String header(ConsumerRecord<?, ?> record, String key) {
         Header h = record.headers().lastHeader(key);
-        return h == null ? null : new String(h.value(), java.nio.charset.StandardCharsets.UTF_8);
+        return h == null ? null : new String(h.value(), StandardCharsets.UTF_8);
     }
 }

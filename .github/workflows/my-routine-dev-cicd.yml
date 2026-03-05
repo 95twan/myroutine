@@ -1,0 +1,168 @@
+name: Compose CI/CD
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      target_branch:
+        description: "Manual deploy target branch"
+        required: true
+        type: choice
+        options:
+          - develop
+        default: develop
+
+jobs:
+  build-and-push:
+    name: Build and Push Images
+    runs-on: ubuntu-24.04
+    needs: [ci]
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (
+        github.event_name == 'workflow_dispatch' &&
+        github.ref == 'refs/heads/develop' &&
+        github.event.inputs.target_branch == 'develop'
+      )
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: config-service
+            path: config
+            image: 95twan/config:latest
+          - name: discovery-service
+            path: discovery
+            image: 95twan/discovery:latest
+          - name: apigateway-service
+            path: apigateway
+            image: 95twan/apigateway-service-dev:latest
+          - name: member-service
+            path: member-service
+            image: 95twan/member-service-dev:latest
+          - name: catalog-service
+            path: catalog-service
+            image: 95twan/catalog-service-dev:latest
+          - name: order-service
+            path: order-service
+            image: 95twan/order-service-dev:latest
+          - name: payment-service
+            path: payment-service
+            image: 95twan/payment-service-dev:latest
+          - name: shop-service
+            path: shop-service
+            image: 95twan/shop-service-dev:latest
+          - name: support-service
+            path: support-service
+            image: 95twan/support-service-dev:latest
+          - name: wallet-service
+            path: wallet-service
+            image: 95twan/wallet-service-dev:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Set Permission to gradlew
+        run: chmod +x ./gradlew
+
+      - name: Build bootJar
+        run: ./gradlew :${{ matrix.path }}:bootJar --no-daemon
+
+      - name: Login to Dockerhub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and Push docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ matrix.path }}
+          push: true
+          tags: ${{ matrix.image }}
+          build-args: |
+            PROFILE=dev
+
+  ci:
+    name: Gradle CI
+    runs-on: ubuntu-24.04
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (
+        github.event_name == 'workflow_dispatch' &&
+        github.ref == 'refs/heads/develop' &&
+        github.event.inputs.target_branch == 'develop'
+      )
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Set Permission to gradlew
+        run: chmod +x ./gradlew
+
+      - name: Run Tests
+        run: ./gradlew clean build --no-daemon
+
+  deploy:
+    name: Deploy with Docker Compose
+    runs-on: ubuntu-24.04
+    needs: [build-and-push]
+    if: |
+      always() &&
+      (
+        (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+        (
+          github.event_name == 'workflow_dispatch' &&
+          github.ref == 'refs/heads/develop' &&
+          github.event.inputs.target_branch == 'develop'
+        )
+      ) &&
+      needs.build-and-push.result == 'success'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Copy compose files to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          source: "docker-compose.yaml,docker-compose-infra.yaml"
+          target: ${{ secrets.DEPLOY_PATH }}
+
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script: |
+            set -euo pipefail
+            cd "${{ secrets.DEPLOY_PATH }}"
+            echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+            docker compose -f docker-compose-infra.yaml pull
+            docker compose -f docker-compose-infra.yaml up -d --remove-orphans --wait --wait-timeout 300
+            docker compose -f docker-compose.yaml pull
+            docker compose -f docker-compose.yaml up -d --remove-orphans
+            docker image prune -f

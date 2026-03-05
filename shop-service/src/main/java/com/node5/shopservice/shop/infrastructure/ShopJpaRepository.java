@@ -45,4 +45,7 @@ public interface ShopJpaRepository extends JpaRepository<Shop, UUID> {
                     and s.deletedAt is null
             """)
     Optional<Shop> findByIdAndRegistrationStatusIs(UUID shopId, ShopRegistrationStatus status);
+
+    @Query(value = "SELECT pg_advisory_xact_lock(hashtext(CAST(:memberId AS text)))", nativeQuery = true)
+    void getTxLock(UUID memberId);
 }
